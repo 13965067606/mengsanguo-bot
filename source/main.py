@@ -32,7 +32,7 @@ import tkinter.font as tkfont
 from tkinter import messagebox, simpledialog, ttk
 
 
-APP_VERSION = "4.9"
+APP_VERSION = "5.0"
 APP_NAME = f"梦三国2巅峰争霸脚本 {APP_VERSION}"
 WM_HOTKEY = 0x0312
 HOTKEY_F8 = 1
@@ -1842,6 +1842,9 @@ class BotEngine:
         self.last_card_open_attempt = 0.0
         self.last_card_stack_y = 0
         self.last_inventory_use = 0.0
+        self.last_combat_seen = 0.0
+        self.combat_order_hold_until = 0.0
+        self.low_health_retreat_until = 0.0
         self.score_cap_reached = False
         self.dead_seen = False
         self.game_started_at = 0.0
@@ -2592,11 +2595,32 @@ class BotEngine:
             top, bottom = group[0], group[-1]
             pixel_count = int(row_scores[top - 260 : bottom - 259].sum())
             if bottom - top + 1 >= 7 and pixel_count >= 15:
+                # Text, prices and equipment charges below the rail are not
+                # card badges. Require the surrounding stack frame as well.
+                center = max(260, top - 5)
+                if not self._card_stack_frame_visible(screenshot, center):
+                    continue
                 if self._card_badge_is_zero(grayscale, top):
                     self.log.info("翻卡：忽略数量为 0 的卡包，数字位置 y=%s", top)
                     continue
                 results.append([995, max(260, top - 5)])
         return results
+
+    def _card_stack_frame_visible(self, screenshot: Image.Image, center_y: int) -> bool:
+        """A quantity alone is insufficient: require two long icon-frame rails."""
+        if screenshot.size != (1024, 768) or not 295 <= center_y <= 425:
+            return False
+        rgb = np.asarray(screenshot.crop((972, center_y - 18, 1024, center_y + 19)).convert("RGB"), dtype=np.int16)
+        red, green, blue = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+        warm = (red >= 55) & (green >= 45) & (red >= green * .95) & (green >= blue * 1.01)
+        hover = (green >= 90) & (blue >= 90) & (green >= red * 1.18)
+        neutral = (rgb.min(axis=2) >= 75) & (rgb.max(axis=2) - rgb.min(axis=2) <= 50)
+        rim = warm | hover | neutral
+        # A real stack has both left and right vertical borders. Ordinary
+        # auto-purchase text has isolated horizontal strokes, not two rails.
+        left = rim[:, :14].sum(axis=0)
+        right = rim[:, 39:].sum(axis=0)
+        return bool(left.max(initial=0) >= 26 and right.max(initial=0) >= 26)
 
     def _choose_next_card_stack(self, screenshot: Image.Image) -> list[int] | None:
         stacks = self._find_numbered_card_stacks(screenshot)
@@ -2620,6 +2644,15 @@ class BotEngine:
         flip_count = min(4, max(0, int(self.config.get("entry", {}).get("card_flip_count", 0))))
         if self._cards_blocked_by_score() and not self.card_flips_done:
             flip_count = 0
+        if not self.card_flips_done and flip_count:
+            health = self._self_health_ratio(screenshot)
+            recent = time.monotonic() - getattr(self, "last_combat_seen", 0.0) < 6.0
+            if recent or (health is not None and health < .35) or self._find_enemy_target(screenshot) is not None:
+                if self.window.key_tap("esc"):
+                    self.card_open_pending_at = 0.0
+                    self.card_open_block_until = time.monotonic() + 15.0
+                    self.log.info("翻卡：交战或低血，关闭尚未翻开的面板，优先恢复作战")
+                return True
         if flip_count == 0:
             if time.monotonic() - self.card_panel_handled_at >= 1.0 and self.window.key_tap("esc"):
                 self.card_panel_handled_at = time.monotonic()
@@ -2997,7 +3030,7 @@ class BotEngine:
         friendly_blue = (blue >= 125) & (blue >= red * 1.18) & (blue >= green * 1.08)
         return enemy, friendly_green | friendly_blue
 
-    def _find_minimap_friendly_group(self, screenshot: Image.Image) -> tuple[list[int], int, int] | None:
+    def _find_minimap_friendly_group(self, screenshot: Image.Image, safe: bool = False) -> tuple[list[int], int, int] | None:
         """Locate the strongest non-base friendly cluster on the minimap."""
         x, y, width, height = self.config["coordinates"]["minimap_region"]
         enemy, friendly = self._minimap_color_masks(screenshot)
@@ -3021,10 +3054,14 @@ class BotEngine:
         # changes between matches; neither corner is a reliable moving group.
         home_mask = ((xx <= width * 0.32) & (yy+window_size >= height * 0.68)) | ((xx+window_size >= width * 0.68) & (yy <= height * 0.32))
         valid &= ~home_mask
+        if safe:
+            # Retreat is not support: never select the hottest red/green fight
+            # as a supposed safe destination for a dying/isolated hero.
+            valid &= enemy_scores <= 3
         if not np.any(valid):
             return None
         contested = valid & (enemy_scores >= 8)
-        if self.config["combat"].get("prefer_contested_friendly_group", True) and np.any(contested):
+        if not safe and self.config["combat"].get("prefer_contested_friendly_group", True) and np.any(contested):
             valid = contested
         score = np.minimum(friendly_scores, 80).astype(np.float32) + np.minimum(enemy_scores, 30) * 2.0
         score[~valid] = -1.0
@@ -3039,7 +3076,7 @@ class BotEngine:
         interval = float(self.config["timing"].get("retreat_interval", 4.0))
         if now - self.last_retreat < interval:
             return True
-        group = self._find_minimap_friendly_group(screenshot)
+        group = self._find_minimap_friendly_group(screenshot, safe=True)
         if group is not None:
             point, friendly_count, enemy_count = group
             label = f"友方主力撤退点(友={friendly_count},红={enemy_count})"
@@ -3376,6 +3413,11 @@ class BotEngine:
 
     def _fight(self, screenshot: Image.Image) -> None:
         now = time.monotonic()
+        if now < getattr(self, "combat_order_hold_until", 0.0):
+            # A fresh chase order can cancel a spell wind-up. Death and modal
+            # states are still checked by _run before reaching this method.
+            self.state = "施法短暂保护"
+            return
         defense_lane = self.config.get("entry", {}).get("defense_lane", "off")
         if defense_lane not in {"top", "middle", "bottom"}:
             defense_lane = "off"
@@ -3407,7 +3449,20 @@ class BotEngine:
 
         # Local combat is evaluated before any optional remote support task.
         enemy = self._find_enemy_target(screenshot) if self.config["combat"].get("targeting_enabled", True) else None
+        health = self._self_health_ratio(screenshot)
+        self.last_self_health_ratio = health
+        low = self.config["combat"].get("low_health_retreat", True) and health is not None and health < .25
+        if low and enemy is not None:
+            if now >= getattr(self, "low_health_retreat_until", 0.0):
+                self.log.info("低血保护：自身血量约%.0f%%，暂缓追击，寻找低敌情友方区域或己方基地", health * 100)
+            self.low_health_retreat_until = now + 4.0
+        if (now < getattr(self, "low_health_retreat_until", 0.0) and health is not None and health < .55):
+            self.last_combat_seen = now
+            self._retreat_to_team_or_home(screenshot, now)
+            self.state = "低血保护 · " + self.state
+            return
         if enemy is not None:
+            self.last_combat_seen = now
             self.no_enemy_since = 0.0
             isolated_max = max(0, int(self.config["combat"].get("isolated_friendly_max", 1)))
             if self._should_retreat_isolated(now):
@@ -3455,6 +3510,12 @@ class BotEngine:
                     time.sleep(float(self.config["timing"].get("key_gap", 0.12)))
                     if self.config["combat"].get("aim_skills_at_enemy", True):
                         self._safe_click_point(skill_target, f"指向性技能 {key.upper()} 的敌方目标")
+                    # Instant/self skills can leave the subsequent left click
+                    # selecting another unit. F1 selects our hero without a
+                    # camera jump or a new movement/attack order.
+                    self.self_selected = bool(self.window.key_tap("f1"))
+                    hold = min(1.2, max(.35, float(self.config["timing"].get("cast_order_hold", .65))))
+                    self.combat_order_hold_until = time.monotonic() + hold
                     self.last_skill_use[key] = time.monotonic()
                     self.last_skill = self.last_skill_use[key]
                     self.next_skill_slot = (slot + 1) % len(skill_keys)
@@ -3530,6 +3591,17 @@ class BotEngine:
         count = min(4, max(0, int(self.config.get("entry", {}).get("card_flip_count", 0))))
         if not count or self._cards_blocked_by_score():
             return False
+        # One missed target frame must not open an optional panel mid-fight.
+        quiet = max(5.0, float(self.config["timing"].get("card_safe_quiet", 6.0)))
+        if getattr(self, "no_enemy_since", 0.0) <= 0 or now - self.no_enemy_since < quiet:
+            return False
+        if now - getattr(self, "last_combat_seen", 0.0) < quiet:
+            return False
+        if now - getattr(self, "last_group_follow", 0.0) < quiet:
+            return False
+        health = self._self_health_ratio(screenshot)
+        if health is not None and health < .60:
+            return False
         if now - self.last_card_open_attempt < max(20.0, float(self.config["timing"].get("card_open_retry", 8.0))):
             return False
         point = self._choose_next_card_stack(screenshot)
@@ -3541,6 +3613,35 @@ class BotEngine:
             self.log.info("翻卡：入口点击已发送，必须确认面板打开；不把点击视为成功")
             return True
         return False
+
+    def _self_health_ratio(self, screenshot: Image.Image) -> float | None:
+        """Read the fixed top-left own-hero bar, not the selected-unit panel.
+
+        Green/yellow/red fills are all handled; unreadable/empty bars do not
+        invent a health value. This is specific to the supported classic HUD.
+        """
+        if screenshot.size != (1024, 768):
+            return None
+        rgb = np.asarray(screenshot.crop((59, 38, 144, 44)).convert("RGB"), dtype=np.int16)
+        red, green, blue = rgb[:, :, 0], rgb[:, :, 1], rgb[:, :, 2]
+        green_fill = (green >= 70) & (green >= red * 1.15) & (green >= blue * 1.08)
+        red_fill = (red >= 85) & (red >= green * 1.25) & (red >= blue * 1.25)
+        yellow_fill = (red >= 90) & (green >= 75) & (blue < np.minimum(red, green) * .65)
+        columns = ((green_fill | red_fill | yellow_fill).sum(axis=0) >= 3)
+        starts = np.flatnonzero(columns[:5])
+        if not starts.size:
+            return None
+        last = int(starts[0]); holes = 0
+        for col in range(last, len(columns)):
+            if columns[col]:
+                last = col; holes = 0
+            else:
+                holes += 1
+                if holes > 2:
+                    break
+        if last < 2:
+            return None
+        return (last + 1) / 85.0
 
     def _run(self) -> None:
         while not self.shutdown.is_set():
@@ -3832,6 +3933,9 @@ class BotEngine:
                         self.card_open_pending_at = 0.0
                         self.card_open_block_until = 0.0
                         self.last_group_follow = 0.0
+                        self.last_combat_seen = 0.0
+                        self.combat_order_hold_until = 0.0
+                        self.low_health_retreat_until = 0.0
                         self.isolated_since = 0.0
                         self.isolated_samples = 0
                         self.last_stats_sample = 0.0
@@ -4019,6 +4123,8 @@ class App:
             "shop_confirmations": self.engine.shop_confirmations,
             "shop_attempts": getattr(self.engine, "shop_setup_attempts", 0),
             "shop_setup_deferred": getattr(self.engine, "shop_setup_deferred", False),
+            "self_health_ratio": getattr(self.engine, "last_self_health_ratio", None),
+            "cast_order_hold_seconds": max(0.0, getattr(self.engine, "combat_order_hold_until", 0.0) - time.monotonic()),
         }
         self.capture_stopping = False
         self.last_capture_hotkey = 0.0

@@ -440,6 +440,7 @@
     ]
   },
   "combat": {
+    "low_health_retreat": true,
     "minimap_move_mode": "direct",
     "prefer_contested_friendly_group": true,
     "experimental_support_enabled": false,
@@ -486,6 +487,8 @@
     "shop_key": "f4"
   },
   "timing": {
+    "cast_order_hold": 0.65,
+    "card_safe_quiet": 6.0,
     "scan_interval": 0.5,
     "room_retry": 10.0,
     "room_detection_grace": 20.0,
