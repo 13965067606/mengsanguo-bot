@@ -32,7 +32,7 @@ import tkinter.font as tkfont
 from tkinter import messagebox, simpledialog, ttk
 
 
-APP_VERSION = "4.8"
+APP_VERSION = "4.9"
 APP_NAME = f"梦三国2巅峰争霸脚本 {APP_VERSION}"
 WM_HOTKEY = 0x0312
 HOTKEY_F8 = 1
@@ -4024,6 +4024,7 @@ class App:
         self.last_capture_hotkey = 0.0
         self.hotkey_actions: Queue[Any] = Queue()
         self.analysis_in_progress = False
+        self.update_in_progress = False
         self._build_ui()
         self.engine.start_thread()
         self.hotkey_thread = threading.Thread(target=self._hotkey_loop, daemon=True, name="Hotkeys")
@@ -4038,7 +4039,30 @@ class App:
         path = self.base / "config.json"
         try:
             with path.open("r", encoding="utf-8") as handle:
-                return json.load(handle)
+                config = json.load(handle)
+            defaults_path = self.base / "config.example.json"
+            if defaults_path.is_file():
+                defaults = json.loads(defaults_path.read_text(encoding="utf-8"))
+                def add_missing(current, default):
+                    for key, value in default.items():
+                        if key not in current:
+                            current[key] = value
+                        elif isinstance(current[key], dict) and isinstance(value, dict):
+                            add_missing(current[key], value)
+                add_missing(config, defaults)
+                # 4.8 public-source assets were privacy-cropped. Older personal
+                # configs may still contain the original full-frame crop box.
+                for key, spec in config.get("detectors", {}).items():
+                    crop = spec.get("template_crop")
+                    default_spec = defaults.get("detectors", {}).get(key, {})
+                    if crop and not default_spec.get("template_crop") and spec.get("file") == default_spec.get("file"):
+                        try:
+                            with Image.open(self.base / config.get("template_dir", "templates") / spec["file"]) as template:
+                                if template.size == (crop[2] - crop[0], crop[3] - crop[1]):
+                                    spec.pop("template_crop")
+                        except (OSError, KeyError, IndexError, TypeError):
+                            pass
+            return config
         except Exception as exc:
             messagebox.showerror(APP_NAME, f"无法读取配置文件：\n{path}\n\n{exc}")
             raise
@@ -4079,6 +4103,7 @@ class App:
         canvas.create_rectangle(0, 0, width, 104, fill="#07101d", outline="#2b4b67", width=1, stipple="gray75")
         canvas.create_text(25, 25, text=APP_NAME, anchor="nw", fill="#e8c46b", font=(display_font, 25, "bold"))
         canvas.create_text(28, 68, text=f"DOMINION AUTOMATION CORE  //  VERSION {APP_VERSION}", anchor="nw", fill="#59d9ff", font=(mono_font, 10, "bold"))
+        tk.Button(canvas, text="检查更新 / 一键更新", command=self._check_update, bg="#14647c", fg="#eaffff", bd=0, cursor="hand2", font=(display_font, 10, "bold")).place(x=610, y=58, width=170, height=29)
         canvas.create_text(
             1210,
             31,
@@ -4201,7 +4226,7 @@ class App:
         self.status_value.place(x=48, y=43, width=230, height=43)
 
         button_base = {"font": (display_font, 10, "bold"), "bd": 0, "relief": "flat", "cursor": "hand2", "activeforeground": "white"}
-        tk.Button(controls, text="▶  F8  启动 / 暂停", command=self.engine.toggle, bg="#14647c", fg="#eaffff", activebackground="#1b829e", **button_base).place(x=18, y=88, width=270, height=38)
+        tk.Button(controls, text="▶  F8  启动 / 暂停", command=self._toggle_engine, bg="#14647c", fg="#eaffff", activebackground="#1b829e", **button_base).place(x=18, y=88, width=270, height=38)
         tk.Button(controls, text="■  F9  紧急停止", command=self._emergency_stop, bg="#7a2831", fg="#fff0f0", activebackground="#a43743", **button_base).place(x=18, y=134, width=132, height=36)
         tk.Button(controls, text="↻  重置停止", command=self.engine.reset_stop, bg="#26384b", fg="#d6e7f2", activebackground="#39536e", **button_base).place(x=156, y=134, width=132, height=36)
         self.cycle_status_var = tk.StringVar(value="本次运行：0 / ∞ 局")
@@ -4514,6 +4539,9 @@ class App:
             self.log.warning("买活策略已在本次运行中切换，但保存配置失败：%s", exc)
 
     def _toggle_capture(self) -> None:
+        if getattr(self, "update_in_progress", False):
+            self.log.warning("更新期间不能启动录制")
+            return
         if self.capture_stopping:
             return
         if self.recorder.is_active and self.recorder.mode == "autoplay":
@@ -4713,7 +4741,7 @@ class App:
                     if self.recorder.is_active and self.recorder.mode != "autoplay":
                         self.log.warning("实战采集中：已忽略 F8，避免启动自动化干扰人工操作")
                     else:
-                        self.engine.toggle()
+                        self._toggle_engine()
                 elif msg.wParam == HOTKEY_F9:
                     self._emergency_stop()
         if registered8:
@@ -4825,6 +4853,16 @@ class App:
             self.text.see("end")
             self.text.configure(state="disabled")
         self.root.after(100, self._poll)
+
+    def _toggle_engine(self) -> None:
+        if self.update_in_progress:
+            self.log.warning("更新期间不能启动挂机")
+            return
+        self.engine.toggle()
+
+    def _check_update(self) -> None:
+        from update_ui import show_update_dialog
+        show_update_dialog(self, APP_VERSION)
 
     def _close(self) -> None:
         self.recorder.close()

@@ -238,3 +238,6 @@ learning/
 挂机录像*/
 .env
 .env.*
+release-output/
+update_success.txt
+update_error.txt
