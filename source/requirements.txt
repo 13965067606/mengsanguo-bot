@@ -1,0 +1,4 @@
+numpy>=2.0
+Pillow>=11.0
+imageio-ffmpeg>=0.6.0
+PyInstaller>=6.0

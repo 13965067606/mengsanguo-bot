@@ -1,0 +1,864 @@
+{
+  "window": {
+    "title_contains": [
+      "梦三国",
+      "梦三国2"
+    ],
+    "client_size": [
+      1024,
+      768
+    ],
+    "size_tolerance": 0
+  },
+  "safety": {
+    "require_foreground": true,
+    "background_mode": false,
+    "lock_cursor_while_running": true,
+    "state_confirm_frames": 2
+  },
+  "template_dir": "templates",
+  "statistics": {
+    "enabled": true,
+    "sample_interval": 2.0,
+    "digit_threshold": 0.68,
+    "score_cap": 1500,
+    "history_limit": 10,
+    "display_limit": 5
+  },
+  "local_learning": {
+    "enabled": true,
+    "profile": "tank",
+    "min_samples": 3,
+    "learning_rate": 0.06,
+    "capture_min_samples": 2,
+    "capture_max_weight": 0.35,
+    "share_combat_captures_with_tank": true,
+    "capture_relative_limit": 0.2
+  },
+  "capture": {
+    "recording_mode": "autoplay",
+    "autoplay_max_minutes": 60,
+    "output_dir": "combat_capture",
+    "supported_client_sizes": [
+      [
+        1024,
+        768
+      ],
+      [
+        1920,
+        1080
+      ],
+      [
+        2560,
+        1440
+      ]
+    ],
+    "size_tolerance": 8,
+    "poll_interval": 0.02,
+    "frame_interval": 1.0,
+    "frame_interval_2k": 2.0,
+    "mouse_move_min_pixels": 3,
+    "jpeg_quality": 82,
+    "jpeg_quality_2k": 76,
+    "video_fps": 8,
+    "video_quality": "720p",
+    "video_size_1024": [
+      1024,
+      768
+    ],
+    "video_size_2k": [
+      1280,
+      720
+    ],
+    "video_crf": 24,
+    "video_cursor_overlay": true,
+    "voice_announcement": true,
+    "voice_volume": 100
+  },
+  "entry": {
+    "match_mode": "power",
+    "hero_category": "survival",
+    "card_flip_count": 0,
+    "stop_cards_at_score_cap": true,
+    "shop_scheme": 2,
+    "skill_layout": "qwer",
+    "buyback_policy": "after_5m",
+    "loop_limit": 0,
+    "completion_action": "stop",
+    "defense_lane": "off",
+    "talent_choice": 2
+  },
+  "coordinates": {
+    "hero_offsets": [
+      [
+        21,
+        394
+      ],
+      [
+        65,
+        394
+      ],
+      [
+        109,
+        394
+      ],
+      [
+        153,
+        394
+      ],
+      [
+        197,
+        394
+      ],
+      [
+        241,
+        394
+      ],
+      [
+        285,
+        394
+      ],
+      [
+        329,
+        394
+      ]
+    ],
+    "hero_offsets_by_category": {
+      "survival": [
+        [
+          21,
+          394
+        ],
+        [
+          65,
+          394
+        ],
+        [
+          109,
+          394
+        ],
+        [
+          153,
+          394
+        ],
+        [
+          197,
+          394
+        ],
+        [
+          241,
+          394
+        ],
+        [
+          285,
+          394
+        ],
+        [
+          329,
+          394
+        ]
+      ],
+      "physical": [
+        [
+          21,
+          88
+        ],
+        [
+          65,
+          88
+        ],
+        [
+          109,
+          88
+        ],
+        [
+          153,
+          88
+        ],
+        [
+          197,
+          88
+        ],
+        [
+          241,
+          88
+        ],
+        [
+          285,
+          88
+        ],
+        [
+          329,
+          88
+        ],
+        [
+          21,
+          153
+        ],
+        [
+          65,
+          153
+        ],
+        [
+          109,
+          153
+        ],
+        [
+          153,
+          153
+        ],
+        [
+          197,
+          153
+        ],
+        [
+          241,
+          153
+        ],
+        [
+          285,
+          153
+        ],
+        [
+          329,
+          153
+        ]
+      ],
+      "magic": [
+        [
+          21,
+          242
+        ],
+        [
+          65,
+          242
+        ],
+        [
+          109,
+          242
+        ],
+        [
+          153,
+          242
+        ],
+        [
+          197,
+          242
+        ],
+        [
+          241,
+          242
+        ],
+        [
+          285,
+          242
+        ],
+        [
+          329,
+          242
+        ],
+        [
+          21,
+          307
+        ],
+        [
+          65,
+          307
+        ],
+        [
+          109,
+          307
+        ],
+        [
+          153,
+          307
+        ],
+        [
+          197,
+          307
+        ],
+        [
+          241,
+          307
+        ],
+        [
+          285,
+          307
+        ],
+        [
+          329,
+          307
+        ]
+      ]
+    },
+    "talent_5_offset": [
+      -125,
+      229
+    ],
+    "talent_option_spacing": 46,
+    "shop_auto_buy": [
+      449,
+      275
+    ],
+    "shop_switch_scheme": [
+      386,
+      272
+    ],
+    "shop_scheme_recommended_tab": [
+      366,
+      190
+    ],
+    "shop_scheme_options": {
+      "1": [
+        263,
+        225
+      ],
+      "2": [
+        263,
+        314
+      ]
+    },
+    "shop_checkbox_offset": [
+      -41,
+      3
+    ],
+    "shop_close": [
+      892,
+      89
+    ],
+    "friendly_home": [
+      25,
+      742
+    ],
+    "card_flip_slots": [
+      [
+        279,
+        490
+      ],
+      [
+        342,
+        490
+      ],
+      [
+        405,
+        490
+      ],
+      [
+        468,
+        490
+      ],
+      [
+        531,
+        490
+      ],
+      [
+        594,
+        490
+      ],
+      [
+        657,
+        490
+      ],
+      [
+        718,
+        490
+      ]
+    ],
+    "inventory_slot_centers": [
+      [
+        360,
+        750
+      ],
+      [
+        387,
+        750
+      ],
+      [
+        414,
+        750
+      ],
+      [
+        440,
+        750
+      ],
+      [
+        466,
+        750
+      ],
+      [
+        493,
+        750
+      ],
+      [
+        519,
+        750
+      ],
+      [
+        546,
+        750
+      ],
+      [
+        573,
+        750
+      ],
+      [
+        600,
+        750
+      ],
+      [
+        627,
+        750
+      ]
+    ],
+    "expedition_casual": [
+      449,
+      628
+    ],
+    "expedition_power": [
+      589,
+      628
+    ],
+    "minimap_region": [
+      8,
+      608,
+      158,
+      154
+    ],
+    "combat_region": [
+      130,
+      70,
+      840,
+      500
+    ],
+    "ground_move_ratio": [
+      0.5,
+      0.5
+    ],
+    "cast_target_ratio": [
+      0.59,
+      0.5
+    ]
+  },
+  "combat": {
+    "minimap_move_mode": "direct",
+    "prefer_contested_friendly_group": true,
+    "experimental_support_enabled": false,
+    "skill_keys": [
+      "q",
+      "w",
+      "e",
+      "r"
+    ],
+    "attack_key": "a",
+    "attack_enabled": true,
+    "targeting_enabled": true,
+    "chase_target_enabled": true,
+    "aim_skills_at_enemy": true,
+    "prioritize_friendly_target": true,
+    "friendly_focus_radius": 220,
+    "follow_friendly_group": true,
+    "team_group_window": 21,
+    "team_group_min_friendly_pixels": 10,
+    "retreat_when_isolated": true,
+    "isolated_friendly_max": 0,
+    "boss_support_enabled": true,
+    "boss_cross_radius": 6,
+    "boss_cross_arm_pixels": 5,
+    "boss_cross_min_pixels": 13,
+    "boss_cross_axis_ratio": 0.42,
+    "tower_support_enabled": true,
+    "tower_fight_window": 15,
+    "tower_fight_min_red_pixels": 4,
+    "tower_fight_min_friendly_pixels": 4,
+    "tower_territory_margin": 0.1,
+    "friendly_activity_run": 22,
+    "defense_lane_corridor": 0.24,
+    "defense_lane_min_red_pixels": 5,
+    "shop_check_min_green_pixels": 8,
+    "use_counted_inventory_items": true,
+    "inventory_count_min_pixels": 8,
+    "teleport_enabled": true,
+    "teleport_key": "b",
+    "self_focus_taps": 2,
+    "confirm_skill_clicks": false,
+    "summon_key": "z",
+    "dismiss_showcase_key": "esc",
+    "shop_key": "f4"
+  },
+  "timing": {
+    "scan_interval": 0.5,
+    "room_retry": 10.0,
+    "room_detection_grace": 20.0,
+    "unknown_diagnostic_interval": 5.0,
+    "after_hero_click": 0.8,
+    "hero_select_delay": 15.0,
+    "shop_open_delay": 0.8,
+    "shop_panel_settle_delay": 1.0,
+    "shop_click_delay": 0.8,
+    "shop_scheme_switch_delay": 0.8,
+    "shop_scheme_open_wait": 0.8,
+    "shop_scheme_tab_wait": 0.35,
+    "shop_scheme_return_wait": 0.8,
+    "shop_verify_duration": 2.5,
+    "shop_verify_interval": 0.5,
+    "shop_verify_samples": 4,
+    "shop_start_confirmations": 2,
+    "talent_retry": 1.5,
+    "shop_retry": 2.0,
+    "card_open_retry": 3.0,
+    "card_open_wait": 0.5,
+    "card_flip_gap": 0.18,
+    "card_reveal_wait": 0.35,
+    "card_panel_timeout": 8.0,
+    "inventory_item_interval": 8.0,
+    "inventory_item_gap": 0.1,
+    "buyback_button_stable_delay": 0.8,
+    "buyback_retry": 1.5,
+    "move_interval": 7.0,
+    "defense_lane_move_interval": 3.0,
+    "view_switch_delay": 0.25,
+    "minimap_double_click_gap": 0.1,
+    "boss_observe_interval": 4.0,
+    "boss_view_settle": 0.45,
+    "tower_support_interval": 3.0,
+    "team_follow_interval": 3.2,
+    "retreat_interval": 3.8,
+    "movement_settle": 5.0,
+    "flash_sample_count": 5,
+    "flash_sample_interval": 0.1,
+    "flash_pixel_threshold": 24.0,
+    "flash_window": 15,
+    "flash_min_score": 1800.0,
+    "input_focus_delay": 0.05,
+    "input_move_delay": 0.08,
+    "click_hold": 0.1,
+    "key_hold": 0.06,
+    "skill_slot_intervals": [
+      11.84,
+      16.31,
+      31.74,
+      39.77
+    ],
+    "chase_click_interval": 0.71,
+    "target_attack_interval": 4.08,
+    "no_enemy_before_teleport": 1.5,
+    "teleport_retry": 15.0,
+    "teleport_channel_wait": 3.5,
+    "summon_interval": 60.0,
+    "key_gap": 0.12,
+    "self_focus_gap": 0.12
+  },
+  "detectors": {
+    "room": {
+      "file": "room.png",
+      "search_region": [
+        770,
+        570,
+        110,
+        110
+      ],
+      "threshold": 0.9,
+      "strong_threshold": 0.94
+    },
+    "matching": {
+      "file": "matching.png",
+      "search_region": [
+        320,
+        80,
+        420,
+        160
+      ],
+      "threshold": 0.9
+    },
+    "hero_select": {
+      "file": "hero_select.png",
+      "search_region": [
+        430,
+        0,
+        220,
+        70
+      ],
+      "threshold": 0.95,
+      "transition_guard_threshold": 0.91
+    },
+    "ready_button": {
+      "file": "ready_button.png",
+      "search_region": [
+        850,
+        600,
+        174,
+        168
+      ],
+      "threshold": 0.9
+    },
+    "talent": {
+      "file": "talent.png",
+      "search_region": [
+        600,
+        220,
+        424,
+        400
+      ],
+      "threshold": 0.92
+    },
+    "talent_anchor_1": {
+      "file": "talent_anchor_1.png",
+      "search_region": [
+        680,
+        330,
+        70,
+        65
+      ],
+      "threshold": 0.94
+    },
+    "talent_anchor_2": {
+      "file": "talent_anchor_2.png",
+      "search_region": [
+        680,
+        375,
+        70,
+        65
+      ],
+      "threshold": 0.94
+    },
+    "talent_anchor_3": {
+      "file": "talent_anchor_3.png",
+      "search_region": [
+        680,
+        420,
+        70,
+        65
+      ],
+      "threshold": 0.94
+    },
+    "talent_5": {
+      "file": "talent_5.png",
+      "search_region": [
+        660,
+        500,
+        100,
+        100
+      ],
+      "threshold": 0.92
+    },
+    "shop_scheme_title": {
+      "file": "shop_scheme_title.png",
+      "search_region": [
+        450,
+        140,
+        150,
+        55
+      ],
+      "threshold": 0.94
+    },
+    "shop_switch_button": {
+      "file": "shop_switch_button.png",
+      "search_region": [
+        330,
+        245,
+        115,
+        60
+      ],
+      "threshold": 0.94
+    },
+    "shop_title": {
+      "file": "shop_title.png",
+      "search_region": [
+        460,
+        75,
+        110,
+        55
+      ],
+      "threshold": 0.93
+    },
+    "shop_panel": {
+      "file": "shop_auto_buy_label.png",
+      "search_region": [
+        410,
+        235,
+        150,
+        90
+      ],
+      "threshold": 0.92,
+      "expected_center": [
+        485,
+        275
+      ],
+      "center_tolerance": [
+        22,
+        20
+      ],
+      "structure_regions": [
+        {
+          "region": [
+            635,
+            145,
+            275,
+            455
+          ],
+          "min_dark_ratio": 0.9,
+          "dark_ceiling": 115,
+          "min_low_saturation_ratio": 0.88,
+          "saturation_span": 45
+        },
+        {
+          "region": [
+            120,
+            145,
+            505,
+            190
+          ],
+          "min_warm_ratio": 0.7
+        }
+      ]
+    },
+    "card_smart_sell": {
+      "file": "card_smart_sell.png",
+      "search_region": [
+        620,
+        530,
+        160,
+        90
+      ],
+      "threshold": 0.9
+    },
+    "card_one_click": {
+      "file": "card_one_click.png",
+      "search_region": [
+        620,
+        530,
+        160,
+        90
+      ],
+      "threshold": 0.9
+    },
+    "card_count_zero": {
+      "file": "card_count_zero.png",
+      "search_region": [
+        995,
+        270,
+        29,
+        190
+      ],
+      "threshold": 0.9
+    },
+    "auto_purchase": {
+      "file": "auto_purchase_reference.png",
+      "search_region": [
+        950,
+        250,
+        74,
+        250
+      ],
+      "threshold": 0.9
+    },
+    "in_game": {
+      "file": "in_game.png",
+      "search_region": [
+        850,
+        0,
+        174,
+        130
+      ],
+      "threshold": 0.96
+    },
+    "dead": {
+      "file": "dead.png",
+      "search_region": [
+        550,
+        40,
+        300,
+        160
+      ],
+      "threshold": 0.92
+    },
+    "showcase": {
+      "file": "showcase.png",
+      "search_region": [
+        450,
+        620,
+        250,
+        148
+      ],
+      "threshold": 0.95
+    },
+    "result": {
+      "file": "result.png",
+      "search_region": [
+        650,
+        620,
+        374,
+        148
+      ],
+      "threshold": 0.98
+    },
+    "result_defeat": {
+      "file": "result_defeat_reference.png",
+      "search_region": [
+        400,
+        0,
+        230,
+        100
+      ],
+      "threshold": 0.94
+    },
+    "town_social": {
+      "file": "town_reference.png",
+      "search_region": [
+        750,
+        690,
+        105,
+        78
+      ],
+      "threshold": 0.92,
+      "relaxed_threshold": 0.84,
+      "structure_region": [
+        0,
+        30,
+        300,
+        220
+      ],
+      "min_structure_warm_ratio": 0.2
+    },
+    "guild_expedition": {
+      "file": "guild_reference.png",
+      "search_region": [
+        540,
+        370,
+        180,
+        120
+      ],
+      "threshold": 0.92
+    },
+    "expedition_dialog": {
+      "file": "expedition_reference.png",
+      "search_region": [
+        240,
+        90,
+        300,
+        100
+      ],
+      "threshold": 0.92
+    },
+    "teleport_ready": {
+      "file": "teleport_reference.png",
+      "search_region": [
+        970,
+        470,
+        54,
+        100
+      ],
+      "threshold": 0.88
+    },
+    "buyback_available": {
+      "file": "buyback_available.png",
+      "search_region": [
+        230,
+        20,
+        260,
+        100
+      ],
+      "threshold": 0.92
+    }
+  }
+}

@@ -218,3 +218,23 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Game bot: private runtime files and recordings
+config.json
+battle_history*.json
+local_learning*.json
+*.log
+*.mp4
+*.avi
+*.mkv
+*.zip
+*.exe
+*.dll
+captures/
+recordings/
+logs/
+learning/
+实战采集*/
+挂机录像*/
+.env
+.env.*
