@@ -32,7 +32,7 @@ import tkinter.font as tkfont
 from tkinter import messagebox, simpledialog, ttk
 
 
-APP_VERSION = "5.0"
+APP_VERSION = "5.2"
 APP_NAME = f"梦三国2巅峰争霸脚本 {APP_VERSION}"
 WM_HOTKEY = 0x0312
 HOTKEY_F8 = 1
@@ -1814,7 +1814,12 @@ class BotEngine:
         self.last_tower_support = 0.0
         self.last_tactical_move = 0.0
         self.last_group_follow = 0.0
+        self.last_group_point: list[int] | None = None
         self.last_retreat = 0.0
+        self.retreat_latched = False
+        self.retreat_until = 0.0
+        self.retreat_recovery_samples = 0
+        self.low_health_item_uses = 0
         self.self_selected = False
         self.enemy_track_memory: list[dict[str, float]] = []
         self.last_target_reason = ""
@@ -1842,11 +1847,13 @@ class BotEngine:
         self.last_card_open_attempt = 0.0
         self.last_card_stack_y = 0
         self.last_inventory_use = 0.0
+        self.inventory_slot_cursor = 0
         self.last_combat_seen = 0.0
         self.combat_order_hold_until = 0.0
         self.low_health_retreat_until = 0.0
         self.score_cap_reached = False
         self.dead_seen = False
+        self.respawn_health_samples = 0
         self.game_started_at = 0.0
         self.last_buyback_attempt = 0.0
         self.buyback_attempted = False
@@ -2053,8 +2060,10 @@ class BotEngine:
         self.last_card_open_attempt = 0.0
         self.last_card_stack_y = 0
         self.last_inventory_use = 0.0
+        self.inventory_slot_cursor = 0
         self.score_cap_reached = False
         self.dead_seen = False
+        self.respawn_health_samples = 0
         self.game_started_at = 0.0
         self.last_buyback_attempt = 0.0
         self.buyback_attempted = False
@@ -2079,7 +2088,12 @@ class BotEngine:
         self.last_tower_support = 0.0
         self.last_tactical_move = 0.0
         self.last_group_follow = 0.0
+        self.last_group_point = None
         self.last_retreat = 0.0
+        self.retreat_latched = False
+        self.retreat_until = 0.0
+        self.retreat_recovery_samples = 0
+        self.low_health_item_uses = 0
         self.self_selected = False
         self.enemy_track_memory = []
         self.last_target_reason = ""
@@ -2723,17 +2737,24 @@ class BotEngine:
                 results.append([center_x, center_y])
         return results
 
-    def _use_counted_inventory_items(self, screenshot: Image.Image) -> None:
+    def _use_counted_inventory_items(self, screenshot: Image.Image, limit: int | None = None) -> int:
         points = self._find_counted_inventory_slots(screenshot)
         if not points:
-            return
+            return 0
+        maximum = max(1, int(limit if limit is not None else self.config["combat"].get("inventory_items_per_cycle", 1)))
+        start = getattr(self, "inventory_slot_cursor", 0) % len(points)
+        points = points[start:] + points[:start]
         used: list[list[int]] = []
         for point in points:
             if self._safe_click_point(point, "带数量的可用物品"):
                 used.append(point)
                 time.sleep(float(self.config["timing"].get("inventory_item_gap", 0.10)))
+                if len(used) >= maximum:
+                    break
         if used:
-            self.log.info("战斗物品：循环点击 %s 个带数量物品 %s", len(used), used)
+            self.inventory_slot_cursor = (start + len(used)) % len(points)
+            self.log.info("战斗物品：本轮仅使用 %s 个带数量物品 %s，避免一次耗尽全部道具", len(used), used)
+        return len(used)
 
     def _shop_capture_without_tooltip(self) -> tuple[Any, Image.Image] | None:
         if not self.active.is_set() or self.permanently_stopped:
@@ -3072,14 +3093,19 @@ class BotEngine:
             int(enemy_scores[row, col]),
         )
 
-    def _retreat_to_team_or_home(self, screenshot: Image.Image, now: float) -> bool:
-        interval = float(self.config["timing"].get("retreat_interval", 4.0))
+    def _retreat_to_team_or_home(self, screenshot: Image.Image, now: float, prefer_home: bool = False) -> bool:
+        interval_key = "low_health_retreat_interval" if prefer_home else "retreat_interval"
+        interval = float(self.config["timing"].get(interval_key, 8.0 if prefer_home else 4.0))
         if now - self.last_retreat < interval:
             return True
-        group = self._find_minimap_friendly_group(screenshot, safe=True)
-        if group is not None:
+        home = self._friendly_home_from_minimap(screenshot) if prefer_home else None
+        group = None if home is not None else self._find_minimap_friendly_group(screenshot, safe=True)
+        if home is not None:
+            point = home
+            label = "低血己方基地安全点"
+        elif group is not None:
             point, friendly_count, enemy_count = group
-            label = f"友方主力撤退点(友={friendly_count},红={enemy_count})"
+            label = f"低威胁友军点(友={friendly_count},红={enemy_count})" if prefer_home else f"友方主力撤退点(友={friendly_count},红={enemy_count})"
         else:
             point = self._friendly_home_from_minimap(screenshot)
             if point is None:
@@ -3092,7 +3118,8 @@ class BotEngine:
         moved = self._move_to_tactical_point(point, label)
         if moved:
             self.state = "落单撤退"
-            self.log.info("战术撤退：敌方在场但缺少友军支援，停止追击并前往%s %s", label, point)
+            prefix = "低血撤退" if prefer_home else "战术撤退"
+            self.log.info("%s：停止追击并前往%s %s", prefix, label, point)
         return True
 
     def _friendly_home_from_minimap(self, screenshot: Image.Image) -> list[int] | None:
@@ -3120,18 +3147,29 @@ class BotEngine:
         return self.isolated_samples >= 3 and now - self.isolated_since >= 2.0
 
     def _follow_friendly_group(self, screenshot: Image.Image, now: float) -> bool:
-        interval = max(6.0, float(self.config["timing"].get("team_follow_interval", 5.0)))
-        if now - self.last_group_follow < interval:
+        interval = max(12.0, float(self.config["timing"].get("team_follow_interval", 12.0)))
+        hold = max(2.0, float(self.config["timing"].get("movement_settle", 5.0)))
+        age = now - self.last_group_follow
+        if self.last_group_follow > 0.0 and age < hold:
             # Continue the successful group movement instead of immediately
             # overriding it with a random minimap move/teleport in the next frame.
-            return self.last_group_follow > 0.0
+            return True
+        if self.last_group_follow > 0.0 and age < interval:
+            return False
         group = self._find_minimap_friendly_group(screenshot)
         if group is None:
             return False
         point, friendly_count, enemy_count = group
+        minimum_shift = max(8.0, float(self.config["combat"].get("team_group_retarget_pixels", 18.0)))
+        if self.last_group_point is not None:
+            shift = float(np.hypot(point[0] - self.last_group_point[0], point[1] - self.last_group_point[1]))
+            if shift < minimum_shift:
+                self.last_group_follow = now
+                return False
         if not self._move_to_tactical_point(point, "友方主力集结点"):
             return False
         self.last_group_follow = now
+        self.last_group_point = list(point)
         self.state = "跟随友方主力"
         self.log.info("跟团：小地图友方候选区 %s（绿像素=%s，红像素=%s），移动至少保留%.1f秒；不是已确认英雄人数", point, friendly_count, enemy_count, interval)
         return True
@@ -3411,6 +3449,44 @@ class BotEngine:
             return [legacy[0][0], legacy[0][1]-(5-choice)*spacing]
         return None
 
+    def _handle_low_health_retreat(self, screenshot: Image.Image, now: float) -> bool:
+        health = self._self_health_ratio(screenshot)
+        self.last_self_health_ratio = health
+        enter_ratio = min(0.60, max(0.05, float(self.config["combat"].get("low_health_enter_ratio", 0.28))))
+        exit_ratio = min(0.95, max(enter_ratio + 0.10, float(self.config["combat"].get("low_health_exit_ratio", 0.55))))
+        hold_seconds = max(3.0, float(self.config["timing"].get("low_health_retreat_hold", 10.0)))
+        recovery_needed = max(1, int(self.config["combat"].get("low_health_recovery_samples", 3)))
+        if health is not None and health <= enter_ratio and not self.retreat_latched:
+            self.retreat_latched = True
+            self.retreat_until = now + hold_seconds
+            self.retreat_recovery_samples = 0
+            self.low_health_item_uses = 0
+            self.log.warning("低血撤退锁：血量约 %.0f%%，至少 %.1f 秒内禁止重新追击", health * 100.0, hold_seconds)
+        if not self.retreat_latched:
+            return False
+        if health is not None and health >= exit_ratio:
+            self.retreat_recovery_samples += 1
+        else:
+            self.retreat_recovery_samples = 0
+        if now >= self.retreat_until and self.retreat_recovery_samples >= recovery_needed:
+            self.retreat_latched = False
+            self.retreat_until = 0.0
+            self.retreat_recovery_samples = 0
+            self.low_health_item_uses = 0
+            self.log.info("低血撤退锁解除：血量连续恢复到约 %.0f%%", (health or 0.0) * 100.0)
+            return False
+        self.last_combat_seen = now
+        self.no_enemy_since = 0.0
+        item_limit = max(0, int(self.config["combat"].get("low_health_item_limit", 2)))
+        item_interval = max(2.0, float(self.config["timing"].get("low_health_item_interval", 5.0)))
+        if health is not None and health <= enter_ratio and self.low_health_item_uses < item_limit and now - self.last_inventory_use >= item_interval:
+            if self._use_counted_inventory_items(screenshot, limit=1):
+                self.last_inventory_use = time.monotonic()
+                self.low_health_item_uses += 1
+        self._retreat_to_team_or_home(screenshot, now, True)
+        self.state = "低血锁定撤退 · " + self.state
+        return True
+
     def _fight(self, screenshot: Image.Image) -> None:
         now = time.monotonic()
         if now < getattr(self, "combat_order_hold_until", 0.0):
@@ -3429,7 +3505,8 @@ class BotEngine:
             state_suffixes.append("战绩已满")
         if state_suffixes:
             self.state = "游戏中 · " + " · ".join(state_suffixes)
-        if not self.self_selected or now-getattr(self, "last_self_focus", 0.0) >= 8.0:
+        focus_interval = max(20.0, float(self.config["timing"].get("self_focus_refresh_interval", 30.0)))
+        if not self.self_selected or now-getattr(self, "last_self_focus", 0.0) >= focus_interval:
             if self._focus_self("选中自己并进入自身视角"):
                 self.self_selected = True
                 self.last_self_focus = time.monotonic()
@@ -3449,17 +3526,7 @@ class BotEngine:
 
         # Local combat is evaluated before any optional remote support task.
         enemy = self._find_enemy_target(screenshot) if self.config["combat"].get("targeting_enabled", True) else None
-        health = self._self_health_ratio(screenshot)
-        self.last_self_health_ratio = health
-        low = self.config["combat"].get("low_health_retreat", True) and health is not None and health < .25
-        if low and enemy is not None:
-            if now >= getattr(self, "low_health_retreat_until", 0.0):
-                self.log.info("低血保护：自身血量约%.0f%%，暂缓追击，寻找低敌情友方区域或己方基地", health * 100)
-            self.low_health_retreat_until = now + 4.0
-        if (now < getattr(self, "low_health_retreat_until", 0.0) and health is not None and health < .55):
-            self.last_combat_seen = now
-            self._retreat_to_team_or_home(screenshot, now)
-            self.state = "低血保护 · " + self.state
+        if self.config["combat"].get("low_health_retreat", True) and self._handle_low_health_retreat(screenshot, now):
             return
         if enemy is not None:
             self.last_combat_seen = now
@@ -3643,6 +3710,16 @@ class BotEngine:
             return None
         return (last + 1) / 85.0
 
+    def _respawn_health_confirmed(self, screenshot: Image.Image) -> bool:
+        health = self._self_health_ratio(screenshot)
+        threshold = min(0.90, max(0.20, float(self.config["combat"].get("respawn_health_ratio", 0.40))))
+        needed = max(2, int(self.config["combat"].get("respawn_health_samples", 3)))
+        if health is not None and health >= threshold:
+            self.respawn_health_samples += 1
+        else:
+            self.respawn_health_samples = 0
+        return self.respawn_health_samples >= needed
+
     def _run(self) -> None:
         while not self.shutdown.is_set():
             if not self.active.is_set() or self.permanently_stopped:
@@ -3743,8 +3820,14 @@ class BotEngine:
                             self.last_card_open_attempt = 0.0
                             self.last_card_stack_y = 0
                             self.last_inventory_use = 0.0
+                            self.inventory_slot_cursor = 0
                             self.score_cap_reached = False
                             self.dead_seen = False
+                            self.respawn_health_samples = 0
+                            self.retreat_latched = False
+                            self.retreat_until = 0.0
+                            self.retreat_recovery_samples = 0
+                            self.low_health_item_uses = 0
                             self.game_started_at = 0.0
                             self.last_buyback_attempt = 0.0
                             self.buyback_attempted = False
@@ -3798,6 +3881,11 @@ class BotEngine:
                         self.last_buyback_attempt = 0.0
                     if confirmed:
                         self.dead_seen = True
+                        self.respawn_health_samples = 0
+                        self.retreat_latched = False
+                        self.retreat_until = 0.0
+                        self.retreat_recovery_samples = 0
+                        self.low_health_item_uses = 0
                         self._sample_battle_stats(image)
                         self.no_enemy_since = 0.0
                         self.self_selected = False
@@ -3862,8 +3950,12 @@ class BotEngine:
                     if confirmed and self.game_started_at <= 0.0:
                         self.game_started_at = time.monotonic()
                     if confirmed and self.dead_seen:
+                        if not self._respawn_health_confirmed(image):
+                            self.state = "复活确认中"
+                            continue
                         self.log.info("识别：已复活，重新移动")
                         self.dead_seen = False
+                        self.respawn_health_samples = 0
                         self.buyback_attempted = False
                         self.last_buyback_attempt = 0.0
                         self.buyback_visible_since = 0.0
@@ -3933,9 +4025,14 @@ class BotEngine:
                         self.card_open_pending_at = 0.0
                         self.card_open_block_until = 0.0
                         self.last_group_follow = 0.0
+                        self.last_group_point = None
                         self.last_combat_seen = 0.0
                         self.combat_order_hold_until = 0.0
                         self.low_health_retreat_until = 0.0
+                        self.retreat_latched = False
+                        self.retreat_until = 0.0
+                        self.retreat_recovery_samples = 0
+                        self.low_health_item_uses = 0
                         self.isolated_since = 0.0
                         self.isolated_samples = 0
                         self.last_stats_sample = 0.0
@@ -3953,6 +4050,7 @@ class BotEngine:
                         self.last_card_open_attempt = 0.0
                         self.last_card_stack_y = 0
                         self.last_inventory_use = 0.0
+                        self.inventory_slot_cursor = 0
                         self.score_cap_reached = False
                         self.game_started_at = 0.0
                         self.last_buyback_attempt = 0.0

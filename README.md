@@ -1,11 +1,21 @@
 # mengsanguo-bot
 梦三国2巅峰争霸脚本
 
-## 5.0 源码
+## 5.2 源码
 
 本软件永久免费，为爱发电，请勿用于商业用途。请设置游戏界面风格为经典画面。
 
-这是 5.0 版本源码，不含个人录像、操作采集、战绩、学习数据和运行日志。保留 4.9 的一键更新功能。
+这是 5.2 版本源码，不含个人录像、操作采集、战绩、学习数据和运行日志。保留 4.9 的一键更新功能。
+
+### 5.2 的实战优化
+
+- 根据 2026-10-18 三组 5.1 肉盾挂机数据与关键画面，修正残血撤退方向。
+- 低血时优先返回己方基地；基地无法可靠确认时，选择敌方红点最少的友军安全区，不再冲向友军交战热点。
+- 撤退指令间隔调整为 8 秒，最短撤退锁延长到 10 秒；仍需血量连续恢复到 55% 以上才重新战斗。
+- 每次低血撤退阶段最多自动使用两个带数量物品，避免长时间残血快速耗尽背包。
+- 死亡后必须检测到血量至少 40% 并连续确认三次，才恢复战斗逻辑。
+
+详细数据与限制见 [5.2 实战优化说明](5.2实战优化说明.md)。
 
 ### 5.0 的小范围战斗修正
 
@@ -52,10 +62,10 @@ powershell -ExecutionPolicy Bypass -File source/build.ps1
 发布者每次修改 `source/main.py` 的 `APP_VERSION`，打包后执行：
 
 ```powershell
-python source/package_release.py --version 5.0 --output release-output
+python source/package_release.py --version 5.2 --output release-output
 ```
 
-在 GitHub 仓库 Releases 创建版本（例如标签 `v5.0`），上传生成的 `MengSanGuoBot-update.zip`、`MengSanGuoBot-5.0.zip` 和 `SHA256.txt`，填写说明并作为正式版本发布。后续版本使用相应版本号。请不要将 GitHub Token 写入软件。
+在 GitHub 仓库 Releases 创建版本（例如标签 `v5.2`），上传生成的 `MengSanGuoBot-update.zip`、`MengSanGuoBot-5.2.zip` 和 `SHA256.txt`，填写说明并作为正式版本发布。后续版本使用相应版本号。请不要将 GitHub Token 写入软件。
 
 安装前必须停止挂机、录制和分析。更新只替换程序、模板、背景图和示例配置，不覆盖个人配置、战绩、学习数据、OCR 安装或录像；新增配置项启动时补入内存，现有选项保留。替换失败尝试恢复，错误见 `update_error.txt`；成功后的旧文件备份位置见 `update_success.txt`。
 

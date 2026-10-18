@@ -441,6 +441,12 @@
   },
   "combat": {
     "low_health_retreat": true,
+    "low_health_enter_ratio": 0.28,
+    "low_health_exit_ratio": 0.55,
+    "low_health_recovery_samples": 3,
+    "low_health_item_limit": 2,
+    "respawn_health_ratio": 0.4,
+    "respawn_health_samples": 3,
     "minimap_move_mode": "direct",
     "prefer_contested_friendly_group": true,
     "experimental_support_enabled": false,
@@ -460,6 +466,7 @@
     "follow_friendly_group": true,
     "team_group_window": 21,
     "team_group_min_friendly_pixels": 10,
+    "team_group_retarget_pixels": 18,
     "retreat_when_isolated": true,
     "isolated_friendly_max": 0,
     "boss_support_enabled": true,
@@ -477,6 +484,7 @@
     "defense_lane_min_red_pixels": 5,
     "shop_check_min_green_pixels": 8,
     "use_counted_inventory_items": true,
+    "inventory_items_per_cycle": 1,
     "inventory_count_min_pixels": 8,
     "teleport_enabled": true,
     "teleport_key": "b",
@@ -515,6 +523,9 @@
     "card_panel_timeout": 8.0,
     "inventory_item_interval": 8.0,
     "inventory_item_gap": 0.1,
+    "low_health_item_interval": 5.0,
+    "low_health_retreat_hold": 10.0,
+    "low_health_retreat_interval": 8.0,
     "buyback_button_stable_delay": 0.8,
     "buyback_retry": 1.5,
     "move_interval": 7.0,
@@ -524,7 +535,7 @@
     "boss_observe_interval": 4.0,
     "boss_view_settle": 0.45,
     "tower_support_interval": 3.0,
-    "team_follow_interval": 3.2,
+    "team_follow_interval": 12.0,
     "retreat_interval": 3.8,
     "movement_settle": 5.0,
     "flash_sample_count": 5,
@@ -549,7 +560,8 @@
     "teleport_channel_wait": 3.5,
     "summon_interval": 60.0,
     "key_gap": 0.12,
-    "self_focus_gap": 0.12
+    "self_focus_gap": 0.12,
+    "self_focus_refresh_interval": 30.0
   },
   "detectors": {
     "room": {
