@@ -68,6 +68,21 @@ class Combat52Tests(unittest.TestCase):
         self.assertEqual(uses, [1, 1])
         self.assertEqual(engine.low_health_item_uses, 2)
 
+    def test_low_health_does_not_retreat_when_teammates_are_nearby(self):
+        engine = self.make_engine()
+        engine.last_target_friendly_count = 3
+        low = frame_with_health(0.12)
+        self.assertFalse(engine._handle_low_health_retreat(low, 100.0, teammates_nearby=True))
+        self.assertFalse(engine.retreat_latched)
+
+    def test_teammates_cancel_an_existing_low_health_retreat(self):
+        engine = self.make_engine()
+        low = frame_with_health(0.12)
+        self.assertTrue(engine._handle_low_health_retreat(low, 100.0))
+        engine.last_target_friendly_count = 2
+        self.assertFalse(engine._handle_low_health_retreat(low, 101.0, teammates_nearby=True))
+        self.assertFalse(engine.retreat_latched)
+
     def test_respawn_requires_three_healthy_samples(self):
         engine = self.make_engine()
         high = frame_with_health(0.80)

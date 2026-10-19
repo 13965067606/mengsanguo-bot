@@ -46,10 +46,16 @@ class Combat50Tests(unittest.TestCase):
         self.assertIsNone(self.engine._self_health_ratio(Image.new('RGB',(1920,1080))))
 
     def test_low_health_retreats_instead_of_attacking(self):
-        e=self.engine; e._find_enemy_target=lambda im:[500,350]
+        e=self.engine; e.last_target_friendly_count=0; e._find_enemy_target=lambda im:[500,350]
         retreats=[];e._retreat_to_team_or_home=lambda *args:retreats.append(True)
         e._fight(self.frame(.15,'red'))
         self.assertTrue(retreats);self.assertEqual(self.keys,[]);self.assertEqual(self.clicks,[])
+
+    def test_low_health_keeps_fighting_with_teammates(self):
+        e=self.engine; e._find_enemy_target=lambda im:[500,350]
+        retreats=[];e._retreat_to_team_or_home=lambda *args:retreats.append(True)
+        e._fight(self.frame(.15,'red'))
+        self.assertFalse(retreats);self.assertIn('a',self.keys);self.assertIn('q',self.keys)
 
     def test_healthy_combat_preserved_and_reselects_self(self):
         e=self.engine;e._find_enemy_target=lambda im:[500,350]

@@ -441,6 +441,7 @@
   },
   "combat": {
     "low_health_retreat": true,
+    "low_health_retreat_only_when_isolated": true,
     "low_health_enter_ratio": 0.28,
     "low_health_exit_ratio": 0.55,
     "low_health_recovery_samples": 3,

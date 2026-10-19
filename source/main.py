@@ -32,7 +32,7 @@ import tkinter.font as tkfont
 from tkinter import messagebox, simpledialog, ttk
 
 
-APP_VERSION = "5.2"
+APP_VERSION = "5.3"
 APP_NAME = f"梦三国2巅峰争霸脚本 {APP_VERSION}"
 WM_HOTKEY = 0x0312
 HOTKEY_F8 = 1
@@ -3449,13 +3449,25 @@ class BotEngine:
             return [legacy[0][0], legacy[0][1]-(5-choice)*spacing]
         return None
 
-    def _handle_low_health_retreat(self, screenshot: Image.Image, now: float) -> bool:
+    def _handle_low_health_retreat(self, screenshot: Image.Image, now: float, teammates_nearby: bool = False) -> bool:
         health = self._self_health_ratio(screenshot)
         self.last_self_health_ratio = health
         enter_ratio = min(0.60, max(0.05, float(self.config["combat"].get("low_health_enter_ratio", 0.28))))
         exit_ratio = min(0.95, max(enter_ratio + 0.10, float(self.config["combat"].get("low_health_exit_ratio", 0.55))))
         hold_seconds = max(3.0, float(self.config["timing"].get("low_health_retreat_hold", 10.0)))
         recovery_needed = max(1, int(self.config["combat"].get("low_health_recovery_samples", 3)))
+        isolated_only = bool(self.config["combat"].get("low_health_retreat_only_when_isolated", True))
+        if isolated_only and teammates_nearby:
+            if self.retreat_latched:
+                self.log.info(
+                    "低血撤退锁解除：附近检测到 %d 个友军目标，继续团战",
+                    self.last_target_friendly_count,
+                )
+            self.retreat_latched = False
+            self.retreat_until = 0.0
+            self.retreat_recovery_samples = 0
+            self.low_health_item_uses = 0
+            return False
         if health is not None and health <= enter_ratio and not self.retreat_latched:
             self.retreat_latched = True
             self.retreat_until = now + hold_seconds
@@ -3526,7 +3538,10 @@ class BotEngine:
 
         # Local combat is evaluated before any optional remote support task.
         enemy = self._find_enemy_target(screenshot) if self.config["combat"].get("targeting_enabled", True) else None
-        if self.config["combat"].get("low_health_retreat", True) and self._handle_low_health_retreat(screenshot, now):
+        teammates_nearby = bool(enemy is not None and self.last_target_friendly_count > 0)
+        if self.config["combat"].get("low_health_retreat", True) and self._handle_low_health_retreat(
+            screenshot, now, teammates_nearby
+        ):
             return
         if enemy is not None:
             self.last_combat_seen = now
