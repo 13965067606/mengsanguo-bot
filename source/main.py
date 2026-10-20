@@ -32,7 +32,7 @@ import tkinter.font as tkfont
 from tkinter import messagebox, simpledialog, ttk
 
 
-APP_VERSION = "5.3"
+APP_VERSION = "5.4"
 APP_NAME = f"梦三国2巅峰争霸脚本 {APP_VERSION}"
 WM_HOTKEY = 0x0312
 HOTKEY_F8 = 1
@@ -3147,25 +3147,43 @@ class BotEngine:
         return self.isolated_samples >= 3 and now - self.isolated_since >= 2.0
 
     def _follow_friendly_group(self, screenshot: Image.Image, now: float) -> bool:
-        interval = max(12.0, float(self.config["timing"].get("team_follow_interval", 12.0)))
+        interval = max(6.0, float(self.config["timing"].get("team_follow_interval", 8.0)))
         hold = max(2.0, float(self.config["timing"].get("movement_settle", 5.0)))
+        memory = max(interval, float(self.config["timing"].get("team_group_memory", 18.0)))
         age = now - self.last_group_follow
         if self.last_group_follow > 0.0 and age < hold:
             # Continue the successful group movement instead of immediately
             # overriding it with a random minimap move/teleport in the next frame.
             return True
         if self.last_group_follow > 0.0 and age < interval:
-            return False
+            self.state = "持续靠拢友方主力"
+            return True
         group = self._find_minimap_friendly_group(screenshot)
         if group is None:
+            # A single noisy minimap frame must not immediately replace a good
+            # team-fight order with teleporting or an unrelated flashing target.
+            if self.last_group_follow > 0.0 and age < memory:
+                self.state = "保持友方主力阵型"
+                return True
             return False
         point, friendly_count, enemy_count = group
         minimum_shift = max(8.0, float(self.config["combat"].get("team_group_retarget_pixels", 18.0)))
         if self.last_group_point is not None:
             shift = float(np.hypot(point[0] - self.last_group_point[0], point[1] - self.last_group_point[1]))
             if shift < minimum_shift:
+                # Re-issue the same team-fight destination: the previous move
+                # may have been interrupted by combat, collision or a spell.
+                if not self._move_to_tactical_point(point, "友方主力持续集结点"):
+                    return False
                 self.last_group_follow = now
-                return False
+                self.state = "保持友方主力阵型"
+                self.log.info(
+                    "跟团保持：友方交战区仍在 %s（绿像素=%s，红像素=%s），继续靠拢而不切换随机目标",
+                    point,
+                    friendly_count,
+                    enemy_count,
+                )
+                return True
         if not self._move_to_tactical_point(point, "友方主力集结点"):
             return False
         self.last_group_follow = now
