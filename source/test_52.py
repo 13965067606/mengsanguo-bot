@@ -94,24 +94,22 @@ class Combat52Tests(unittest.TestCase):
         self.assertFalse(engine._respawn_health_confirmed(high))
         self.assertTrue(engine._respawn_health_confirmed(high))
 
-    def test_recent_team_order_blocks_random_roaming(self):
+    def test_recent_team_order_allows_retarget_after_settle(self):
         engine = self.make_engine()
         engine.last_group_follow = 100.0
         engine.last_group_point = [100, 650]
         engine._find_minimap_friendly_group = lambda _image: None
-        self.assertTrue(engine._follow_friendly_group(Image.new("RGB", (1024, 768)), 107.0))
-        self.assertEqual(engine.state, "持续靠拢友方主力")
+        self.assertFalse(engine._follow_friendly_group(Image.new("RGB", (1024, 768)), 107.0))
 
-    def test_stable_team_fight_reissues_movement(self):
+    def test_stable_team_fight_does_not_force_reentry(self):
         engine = self.make_engine()
         engine.last_group_follow = 100.0
         engine.last_group_point = [100, 650]
         engine._find_minimap_friendly_group = lambda _image: ([105, 654], 65, 24)
         moves = []
         engine._move_to_tactical_point = lambda point, label: moves.append((point, label)) or True
-        self.assertTrue(engine._follow_friendly_group(Image.new("RGB", (1024, 768)), 120.0))
-        self.assertEqual(len(moves), 1)
-        self.assertEqual(engine.state, "保持友方主力阵型")
+        self.assertFalse(engine._follow_friendly_group(Image.new("RGB", (1024, 768)), 120.0))
+        self.assertEqual(moves, [])
 
 
 if __name__ == "__main__":

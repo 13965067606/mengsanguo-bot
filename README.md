@@ -1,11 +1,20 @@
 # mengsanguo-bot
 梦三国2巅峰争霸脚本
 
-## 5.4 源码
+## 5.5 源码
 
 本软件永久免费，为爱发电，请勿用于商业用途。请设置游戏界面风格为经典画面。
 
-这是 5.4 版本源码，不含个人录像、操作采集、战绩、学习数据和运行日志。保留 4.9 的一键更新功能。
+这是 5.5 版本源码，不含个人录像、操作采集、战绩、学习数据和运行日志。保留 4.9 的一键更新功能。
+
+### 5.5 的实战优化
+
+- 撤销 5.4 中造成战绩退化的强制团战驻留。
+- 不再反复向同一危险交战中心补发移动指令。
+- 恢复 5.3 已验证的跟团、转场和传送节奏。
+- 保留“有队友低血继续战斗、落单低血才撤退”的规则。
+
+详细数据见 [5.5 实战优化说明](5.5实战优化说明.md)。
 
 ### 5.4 的实战优化
 
@@ -79,7 +88,7 @@ powershell -ExecutionPolicy Bypass -File source/build.ps1
 发布者每次修改 `source/main.py` 的 `APP_VERSION`，打包后执行：
 
 ```powershell
-python source/package_release.py --version 5.4 --output release-output
+python source/package_release.py --version 5.5 --output release-output
 ```
 
 在 GitHub 仓库 Releases 创建版本（例如标签 `v5.2`），上传生成的 `MengSanGuoBot-update.zip`、`MengSanGuoBot-5.2.zip` 和 `SHA256.txt`，填写说明并作为正式版本发布。后续版本使用相应版本号。请不要将 GitHub Token 写入软件。
