@@ -32,7 +32,7 @@ import tkinter.font as tkfont
 from tkinter import messagebox, simpledialog, ttk
 
 
-APP_VERSION = "5.7"
+APP_VERSION = "5.8"
 APP_NAME = f"梦三国2巅峰争霸脚本 {APP_VERSION}"
 WM_HOTKEY = 0x0312
 HOTKEY_F8 = 1
@@ -1539,7 +1539,14 @@ class LocalStrategyLearner:
     def _capture_click_region(event: dict[str, Any], metadata: dict[str, Any], snapshot: dict[str, Any]) -> str:
         width, height = metadata.get("client_size", [1024, 768])[:2]
         width, height = max(1, int(width)), max(1, int(height))
-        x, y = event.get("x"), event.get("y")
+        # Recorder v2 already stores canonical 1024x768 coordinates. Prefer
+        # those so 2K manual captures teach the same minimap/HUD regions as
+        # the 1024x768 automation client.
+        x, y = event.get("x_1024"), event.get("y_768")
+        if isinstance(x, (int, float)) and isinstance(y, (int, float)):
+            width, height = 1024, 768
+        else:
+            x, y = event.get("x"), event.get("y")
         if not isinstance(x, (int, float)) or not isinstance(y, (int, float)):
             nx, ny = event.get("x_norm"), event.get("y_norm")
             if not isinstance(nx, (int, float)) or not isinstance(ny, (int, float)):
@@ -1815,6 +1822,11 @@ class BotEngine:
         self.last_tactical_move = 0.0
         self.last_group_follow = 0.0
         self.last_group_point: list[int] | None = None
+        self.objective_candidate_point: list[int] | None = None
+        self.objective_candidate_hits = 0
+        self.objective_candidate_seen_at = 0.0
+        self.objective_hold_until = 0.0
+        self.last_objective_move = 0.0
         self.last_retreat = 0.0
         self.retreat_latched = False
         self.retreat_until = 0.0
@@ -2104,6 +2116,11 @@ class BotEngine:
         self.last_tactical_move = 0.0
         self.last_group_follow = 0.0
         self.last_group_point = None
+        self.objective_candidate_point = None
+        self.objective_candidate_hits = 0
+        self.objective_candidate_seen_at = 0.0
+        self.objective_hold_until = 0.0
+        self.last_objective_move = 0.0
         self.last_retreat = 0.0
         self.retreat_latched = False
         self.retreat_until = 0.0
@@ -3088,7 +3105,10 @@ class BotEngine:
         centers_y = yy + window_size // 2
         # Both base corners contain permanent buildings/portraits. Team side
         # changes between matches; neither corner is a reliable moving group.
-        home_mask = ((xx <= width * 0.32) & (yy+window_size >= height * 0.68)) | ((xx+window_size >= width * 0.68) & (yy <= height * 0.32))
+        # Recordings showed stable base/HUD colour runs just outside the old
+        # 32% corner cutoff (for example [69, 741]) winning the group score.
+        # Widen the two permanent-base exclusions without masking mid-map.
+        home_mask = ((xx <= width * 0.45) & (yy+window_size >= height * 0.68)) | ((xx+window_size >= width * 0.55) & (yy <= height * 0.32))
         valid &= ~home_mask
         if safe:
             # Retreat is not support: never select the hottest red/green fight
@@ -3162,6 +3182,55 @@ class BotEngine:
         return self.isolated_samples >= 3 and now - self.isolated_since >= 2.0
 
     def _follow_friendly_group(self, screenshot: Image.Image, now: float) -> bool:
+        group = self._find_minimap_friendly_group(screenshot)
+        if self.config["combat"].get("objective_support_enabled", True) and group is not None:
+            point, friendly_count, enemy_count = group
+            x, y, width, height = self.config["coordinates"]["minimap_region"]
+            nx = (point[0] - x) / max(1, width - 1)
+            ny = (point[1] - y) / max(1, height - 1)
+            edge = self.config["combat"].get("objective_edge_margins", [0.10, 0.10, 0.08, 0.18])
+            left, right, top, bottom = [float(value) for value in edge[:4]]
+            inside = left <= nx <= 1.0 - right and top <= ny <= 1.0 - bottom
+            friendly_min = max(4, int(self.config["combat"].get("objective_min_friendly_pixels", 10)))
+            enemy_min = max(2, int(self.config["combat"].get("objective_min_enemy_pixels", 5)))
+            contested = inside and friendly_count >= friendly_min and enemy_count >= enemy_min
+            if contested:
+                radius = max(6.0, float(self.config["combat"].get("objective_confirm_radius", 12.0)))
+                recent = now - getattr(self, "objective_candidate_seen_at", 0.0) <= 2.0
+                previous_candidate = getattr(self, "objective_candidate_point", None)
+                same = previous_candidate is not None and float(np.hypot(
+                    point[0] - previous_candidate[0], point[1] - previous_candidate[1]
+                )) <= radius
+                previous_hits = getattr(self, "objective_candidate_hits", 0)
+                self.objective_candidate_hits = previous_hits + 1 if recent and same else 1
+                self.objective_candidate_point = list(point)
+                self.objective_candidate_seen_at = now
+                needed = max(2, int(self.config["combat"].get("objective_confirm_samples", 2)))
+                if self.objective_candidate_hits < needed:
+                    self.state = "确认团队目标"
+                    return True
+                hold = max(12.0, float(self.config["timing"].get("objective_support_hold", 18.0)))
+                reissue = max(4.0, float(self.config["timing"].get("objective_reissue_interval", 6.0)))
+                self.objective_hold_until = now + hold
+                if now - getattr(self, "last_objective_move", 0.0) >= reissue:
+                    if not self._move_to_tactical_point(point, "团队目标（团战/推塔/BOSS）"):
+                        return False
+                    self.last_objective_move = now
+                    self.last_group_follow = now
+                    self.last_group_point = list(point)
+                    self.log.info(
+                        "目标支援：连续确认友军交战区 %s（友=%s，红=%s），前往协助团战、推塔或BOSS；至少保持%.1f秒",
+                        point, friendly_count, enemy_count, hold,
+                    )
+                self.state = "支援团队目标"
+                return True
+        if now < getattr(self, "objective_hold_until", 0.0):
+            self.state = "团队目标支援保持"
+            return True
+        if now - getattr(self, "objective_candidate_seen_at", 0.0) > 2.0:
+            self.objective_candidate_hits = 0
+            self.objective_candidate_point = None
+
         interval = max(12.0, float(self.config["timing"].get("team_follow_interval", 12.0)))
         hold = max(2.0, float(self.config["timing"].get("movement_settle", 5.0)))
         age = now - self.last_group_follow
@@ -3171,7 +3240,6 @@ class BotEngine:
             return True
         if self.last_group_follow > 0.0 and age < interval:
             return False
-        group = self._find_minimap_friendly_group(screenshot)
         if group is None:
             return False
         point, friendly_count, enemy_count = group
@@ -4069,6 +4137,11 @@ class BotEngine:
                         self.card_open_block_until = 0.0
                         self.last_group_follow = 0.0
                         self.last_group_point = None
+                        self.objective_candidate_point = None
+                        self.objective_candidate_hits = 0
+                        self.objective_candidate_seen_at = 0.0
+                        self.objective_hold_until = 0.0
+                        self.last_objective_move = 0.0
                         self.last_combat_seen = 0.0
                         self.combat_order_hold_until = 0.0
                         self.low_health_retreat_until = 0.0

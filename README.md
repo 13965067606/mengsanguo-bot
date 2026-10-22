@@ -1,11 +1,21 @@
 # mengsanguo-bot
 梦三国2巅峰争霸脚本
 
-## 5.7 源码
+## 5.8 源码
 
 本软件永久免费，为爱发电，请勿用于商业用途。请设置游戏界面风格为经典画面。
 
-这是 5.7 版本源码，不含个人录像、操作采集、战绩、学习数据和运行日志。保留 4.9 的一键更新功能。
+这是 5.8 版本源码，不含个人录像、操作采集、战绩、学习数据和运行日志。保留 4.9 的一键更新功能。
+
+### 5.8 团队目标支援
+
+- 连续确认友军与红色目标重叠的交战区后，优先前往协助团战、推塔或 BOSS。
+- 支援指令至少保持 18 秒，每 6 秒按最新队伍位置修正，避免刚靠近就被普通游走覆盖。
+- 排除小地图边缘的基地、建筑及固定图标误报，不再把底边图标当成友军主力。
+- 继续维持自身视角；目标识别与移动直接使用小地图，不长时间停留在远处镜头。
+- 修正 2K 人工采集的坐标归一化，使小地图、地面与 HUD 操作统计能够正确参与学习。
+
+详细分析见 [5.8 团队目标支援优化说明](5.8团队目标支援优化说明.md)。
 
 ### 5.7 按局自动录像
 
@@ -104,7 +114,7 @@ powershell -ExecutionPolicy Bypass -File source/build.ps1
 发布者每次修改 `source/main.py` 的 `APP_VERSION`，打包后执行：
 
 ```powershell
-python source/package_release.py --version 5.7 --output release-output
+python source/package_release.py --version 5.8 --output release-output
 ```
 
 在 GitHub 仓库 Releases 创建版本（例如标签 `v5.2`），上传生成的 `MengSanGuoBot-update.zip`、`MengSanGuoBot-5.2.zip` 和 `SHA256.txt`，填写说明并作为正式版本发布。后续版本使用相应版本号。请不要将 GitHub Token 写入软件。

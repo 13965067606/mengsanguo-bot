@@ -452,6 +452,17 @@
     "minimap_move_mode": "direct",
     "prefer_contested_friendly_group": true,
     "experimental_support_enabled": false,
+    "objective_support_enabled": true,
+    "objective_min_friendly_pixels": 10,
+    "objective_min_enemy_pixels": 5,
+    "objective_confirm_samples": 2,
+    "objective_confirm_radius": 12,
+    "objective_edge_margins": [
+      0.1,
+      0.1,
+      0.08,
+      0.18
+    ],
     "skill_keys": [
       "q",
       "w",
@@ -538,6 +549,8 @@
     "boss_view_settle": 0.45,
     "tower_support_interval": 3.0,
     "team_follow_interval": 12.0,
+    "objective_support_hold": 18.0,
+    "objective_reissue_interval": 6.0,
     "retreat_interval": 3.8,
     "movement_settle": 5.0,
     "flash_sample_count": 5,
