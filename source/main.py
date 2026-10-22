@@ -32,7 +32,7 @@ import tkinter.font as tkfont
 from tkinter import messagebox, simpledialog, ttk
 
 
-APP_VERSION = "5.6"
+APP_VERSION = "5.7"
 APP_NAME = f"梦三国2巅峰争霸脚本 {APP_VERSION}"
 WM_HOTKEY = 0x0312
 HOTKEY_F8 = 1
@@ -1872,7 +1872,22 @@ class BotEngine:
         self.expedition_mode_armed = True
         self.detected_state = ""
         self.detected_state_hits = 0
+        self.recording_event_callback: Any = None
+        self.last_recording_event = ""
         self.thread = threading.Thread(target=self._run, daemon=True, name="BotEngine")
+
+    def _notify_recording_event(self, event: str) -> None:
+        """Publish confirmed match boundaries once per state transition."""
+        if event == self.last_recording_event:
+            return
+        self.last_recording_event = event
+        callback = self.recording_event_callback
+        if callback is None:
+            return
+        try:
+            callback(event)
+        except Exception as exc:
+            self.log.warning("自动录像状态通知失败：%s", exc)
 
     def _load_battle_history(self) -> list[dict[str, Any]]:
         path = self.base / "battle_history.json"
@@ -4040,6 +4055,7 @@ class BotEngine:
                     self.state = "选人"
                     confirmed = self._state_confirmed("hero_select")
                     if confirmed and not self.hero_session_active:
+                        self._notify_recording_event("hero_select")
                         self.hero_session_active = True
                         self.opening_sequence_seen = True
                         self.hero_selected = False
@@ -4119,6 +4135,7 @@ class BotEngine:
                     self.state = "房间等待"
                     confirmed = self._state_confirmed("room")
                     if confirmed:
+                        self._notify_recording_event("room")
                         self.hero_session_active = False
                         self.room_last_seen_at = time.monotonic()
                     if confirmed and self.room_match_armed and self.room_wait_started <= 0.0:
@@ -4254,6 +4271,7 @@ class App:
         self.capture_stopping = False
         self.last_capture_hotkey = 0.0
         self.hotkey_actions: Queue[Any] = Queue()
+        self.engine.recording_event_callback = lambda event: self.hotkey_actions.put(("recording_event", event))
         self.analysis_in_progress = False
         self.update_in_progress = False
         self._build_ui()
@@ -4463,8 +4481,15 @@ class App:
         self.cycle_status_var = tk.StringVar(value="本次运行：0 / ∞ 局")
         tk.Label(controls, textvariable=self.cycle_status_var, bg="#0d1928", fg="#6ee6ff", font=(mono_font, 11, "bold"), anchor="w", padx=10, highlightbackground="#233c52", highlightthickness=1).place(x=18, y=184, width=270, height=40)
         tk.Label(controls, text="录制模式", bg="#09121f", fg="#768b9c", font=(display_font, 9), anchor="w").place(x=18, y=234, width=110, height=26)
-        self.recording_mode_var = tk.StringVar(value="人工采集" if self.config.get("capture", {}).get("recording_mode", "autoplay") == "manual" else "挂机录像")
-        self.recording_mode_box = ttk.Combobox(controls, textvariable=self.recording_mode_var, values=("挂机录像", "人工采集"), state="readonly", style="Cyber.TCombobox", font=(display_font, 9))
+        capture_config = self.config.get("capture", {})
+        if capture_config.get("auto_record_matches", True):
+            recording_label = "按局自动录像"
+        elif capture_config.get("recording_mode", "autoplay") == "manual":
+            recording_label = "人工采集"
+        else:
+            recording_label = "关闭录像"
+        self.recording_mode_var = tk.StringVar(value=recording_label)
+        self.recording_mode_box = ttk.Combobox(controls, textvariable=self.recording_mode_var, values=("按局自动录像", "关闭录像", "人工采集"), state="readonly", style="Cyber.TCombobox", font=(display_font, 9))
         self.recording_mode_box.place(x=148, y=232, width=140, height=31)
         self.recording_mode_box.bind("<<ComboboxSelected>>", self._change_recording_mode)
         tk.Label(controls, text="采集语音音量", bg="#09121f", fg="#987f55", font=(display_font, 9, "bold"), anchor="w").place(x=18, y=273, width=150, height=24)
@@ -4778,11 +4803,14 @@ class App:
         if self.recorder.is_active and self.recorder.mode == "autoplay":
             self._stop_autoplay_recording()
             return
-        if not self.recorder.is_active and self.recording_mode_var.get() == "挂机录像":
+        if not self.recorder.is_active and self.recording_mode_var.get() == "按局自动录像":
             if self.recorder.start("autoplay"):
                 self._speak_async("挂机录像开始，脚本运行不受影响")
             else:
                 self._speak_async("挂机录像启动失败")
+            return
+        if not self.recorder.is_active and self.recording_mode_var.get() == "关闭录像":
+            self.log.info("录像功能已关闭；可在录制模式中重新开启")
             return
         if self.recorder.is_active:
             self.recorder.stop()
@@ -4844,8 +4872,32 @@ class App:
             self.recorder.stop()
 
     def _change_recording_mode(self, _event: Any = None) -> None:
-        self.config.setdefault("capture", {})["recording_mode"] = "autoplay" if self.recording_mode_var.get() == "挂机录像" else "manual"
+        label = self.recording_mode_var.get()
+        capture = self.config.setdefault("capture", {})
+        capture["auto_record_matches"] = label == "按局自动录像"
+        capture["recording_mode"] = "manual" if label == "人工采集" else "autoplay"
         (self.base / "config.json").write_text(json.dumps(self.config, ensure_ascii=False, indent=2)+"\n", encoding="utf-8")
+        if label == "按局自动录像":
+            self.log.info("按局自动录像：已开启；进入选人界面自动开始，返回房间自动保存")
+            if self.engine.state.startswith("选人") and not self.recorder.is_active:
+                self._handle_recording_event("hero_select")
+        else:
+            self.log.info("按局自动录像：已关闭%s", "，可使用 F12 人工采集" if label == "人工采集" else "")
+            if self.recorder.is_active and self.recorder.mode == "autoplay":
+                self._stop_autoplay_recording()
+
+    def _handle_recording_event(self, event: str) -> None:
+        capture = self.config.get("capture", {})
+        if event == "hero_select":
+            if capture.get("auto_record_matches", True) and not self.recorder.is_active and not self.capture_stopping:
+                if self.recorder.start("autoplay"):
+                    self.log.info("按局自动录像：选人界面已确认，本局录像开始")
+                    self._speak_async("本局录像开始")
+                else:
+                    self.log.warning("按局自动录像：本局启动失败")
+        elif event == "room" and self.recorder.is_active and self.recorder.mode == "autoplay":
+            self.log.info("按局自动录像：已返回房间，正在结束并保存本局录像")
+            self._stop_autoplay_recording()
 
     def _stop_autoplay_recording(self) -> None:
         if self.capture_stopping:
@@ -5005,6 +5057,8 @@ class App:
             elif action == "autoplay_saved":
                 self.capture_stopping = False
                 self._speak_async("挂机录像结束，文件已保存")
+            elif isinstance(action, tuple) and action[0] == "recording_event":
+                self._handle_recording_event(str(action[1]))
             elif isinstance(action, tuple) and action[0] == "analysis_done":
                 result = action[1]
                 self.analysis_in_progress = False

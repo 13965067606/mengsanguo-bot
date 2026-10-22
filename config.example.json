@@ -37,6 +37,7 @@
   },
   "capture": {
     "recording_mode": "autoplay",
+    "auto_record_matches": true,
     "autoplay_max_minutes": 60,
     "output_dir": "combat_capture",
     "supported_client_sizes": [

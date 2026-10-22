@@ -1,11 +1,18 @@
 # mengsanguo-bot
 梦三国2巅峰争霸脚本
 
-## 5.6 源码
+## 5.7 源码
 
 本软件永久免费，为爱发电，请勿用于商业用途。请设置游戏界面风格为经典画面。
 
-这是 5.6 版本源码，不含个人录像、操作采集、战绩、学习数据和运行日志。保留 4.9 的一键更新功能。
+这是 5.7 版本源码，不含个人录像、操作采集、战绩、学习数据和运行日志。保留 4.9 的一键更新功能。
+
+### 5.7 按局自动录像
+
+- 默认开启“按局自动录像”：确认进入选人界面后开始录制，确认返回房间后结束并保存。
+- 连续挂机时每局单独生成一份录像，下一局进入选人界面后自动重新开始。
+- 软件“录制模式”可切换为“关闭录像”或“人工采集”；关闭时若正在自动录像，会先安全保存当前文件。
+- 自动录像不会暂停挂机操作，录像仍保存在 `autoplay_recordings` 目录。
 
 ### 5.6 的实战优化
 
@@ -97,7 +104,7 @@ powershell -ExecutionPolicy Bypass -File source/build.ps1
 发布者每次修改 `source/main.py` 的 `APP_VERSION`，打包后执行：
 
 ```powershell
-python source/package_release.py --version 5.6 --output release-output
+python source/package_release.py --version 5.7 --output release-output
 ```
 
 在 GitHub 仓库 Releases 创建版本（例如标签 `v5.2`），上传生成的 `MengSanGuoBot-update.zip`、`MengSanGuoBot-5.2.zip` 和 `SHA256.txt`，填写说明并作为正式版本发布。后续版本使用相应版本号。请不要将 GitHub Token 写入软件。
