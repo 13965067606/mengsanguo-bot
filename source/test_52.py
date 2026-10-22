@@ -111,6 +111,25 @@ class Combat52Tests(unittest.TestCase):
         self.assertFalse(engine._follow_friendly_group(Image.new("RGB", (1024, 768)), 120.0))
         self.assertEqual(moves, [])
 
+    def test_camera_map_move_immediately_restores_self_view(self):
+        engine = self.make_engine()
+        engine.config["combat"]["minimap_move_mode"] = "camera"
+        engine._safe_click_point = lambda *_args, **_kwargs: True
+        engine._safe_click_ratio = lambda *_args, **_kwargs: True
+        restores = []
+        engine._restore_self_view = lambda reason: restores.append(reason) or True
+        self.assertTrue(engine._move_to_tactical_point([80, 680], "测试支援点"))
+        self.assertEqual(restores, ["战术移动已下达，立即返回自身视角"])
+
+    def test_restore_self_view_updates_selection_and_timestamp(self):
+        engine = self.make_engine()
+        engine.self_selected = False
+        engine.last_self_focus = 0.0
+        engine._focus_self = lambda _reason: True
+        self.assertTrue(engine._restore_self_view("测试"))
+        self.assertTrue(engine.self_selected)
+        self.assertGreater(engine.last_self_focus, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()

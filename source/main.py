@@ -32,7 +32,7 @@ import tkinter.font as tkfont
 from tkinter import messagebox, simpledialog, ttk
 
 
-APP_VERSION = "5.5"
+APP_VERSION = "5.6"
 APP_NAME = f"梦三国2巅峰争霸脚本 {APP_VERSION}"
 WM_HOTKEY = 0x0312
 HOTKEY_F8 = 1
@@ -3292,11 +3292,11 @@ class BotEngine:
         self.self_selected = False
         time.sleep(float(self.config["timing"].get("view_switch_delay", 0.25)))
         if not self._safe_click_ratio("ground_move_ratio", f"前往{label}", "right"):
-            self._focus_self("战术移动点击失败，返回自身视角")
+            self._restore_self_view("战术移动点击失败，返回自身视角")
             return False
         self.last_move = time.monotonic()
         self.last_tactical_move = self.last_move
-        return True
+        return self._restore_self_view("战术移动已下达，立即返回自身视角")
 
     def _find_friendly_teleport_target(self, screenshot: Image.Image) -> list[int] | None:
         x, y, width, height = self.config["coordinates"].get("combat_region", [130, 70, 840, 500])
@@ -3336,6 +3336,16 @@ class BotEngine:
         self.log.info("操作：连续按 %s 次 F1，%s", taps, reason)
         return True
 
+    def _restore_self_view(self, reason: str) -> bool:
+        """Return camera and selection to our hero immediately after map UI use."""
+        focused = self._focus_self(reason)
+        self.self_selected = focused
+        if focused:
+            self.last_self_focus = time.monotonic()
+        else:
+            self.log.warning("自身视角恢复失败：%s", reason)
+        return focused
+
     def _try_teleport(self, screenshot: Image.Image, lane: str = "off") -> bool:
         destination = self._find_minimap_enemy_cluster(screenshot, lane)
         labels = {"top": "上路", "middle": "中路", "bottom": "下路"}
@@ -3350,22 +3360,24 @@ class BotEngine:
         time.sleep(float(self.config["timing"].get("view_switch_delay", 0.25)))
         captured = self.window.grab()
         if captured is None:
-            self._focus_self("传送取图失败，返回自身视角")
+            self._restore_self_view("传送取图失败，返回自身视角")
             return False
         friendly = self._find_friendly_teleport_target(captured[1])
         if friendly is None:
-            self._focus_self("未找到传送目标，返回自身视角")
+            self._restore_self_view("未找到传送目标，返回自身视角")
             return False
         teleport_key = self.config["combat"].get("teleport_key", "b")
         if not self.window.key_tap(teleport_key):
             return False
         time.sleep(float(self.config["timing"].get("key_gap", 0.12)))
         if not self._safe_click_point(friendly, "传送目标"):
-            self._focus_self("传送目标点击失败，返回自身视角")
+            self._restore_self_view("传送目标点击失败，返回自身视角")
             return False
         self.log.info("传送：B 可用，已选择远处友方建筑或单位 %s", friendly)
+        # The channel continues after selecting our hero. Restore the camera
+        # now instead of staring at the remote destination for several seconds.
+        self._restore_self_view("传送指令已下达，立即返回自身视角")
         time.sleep(float(self.config["timing"].get("teleport_channel_wait", 3.5)))
-        self._focus_self("传送后选中自己并回到自身视角")
         self.last_move = 0.0
         return True
 
@@ -3404,7 +3416,7 @@ class BotEngine:
                                     time.sleep(float(timing.get("key_gap", 0.12)))
                                     self._safe_click_point(enemy, "BOSS 区域敌方目标")
                             return self._move_to_tactical_point(boss, "BOSS 支援点", double_click=False)
-                    self._focus_self("BOSS 区域暂时无人，返回自身视角")
+                    self._restore_self_view("BOSS 区域暂时无人，返回自身视角")
 
         if mode != "boss" and combat.get("tower_support_enabled", True):
             tower_interval = float(timing.get("tower_support_interval", 3.0))
@@ -3644,7 +3656,7 @@ class BotEngine:
             if not self._safe_click_ratio("ground_move_ratio", f"向{lane_label}红点移动", "right"):
                 return
             self.last_move = time.monotonic()
-            self.self_selected = False
+            self._restore_self_view(f"已向{lane_label}红点移动，立即返回自身视角")
             self.log.info("单路防守：锁定%s红点 %s，已向该位置移动", lane_label, target)
             return
 
@@ -3658,7 +3670,7 @@ class BotEngine:
             if not self._safe_click_ratio("ground_move_ratio", "主画面移动目标", "right"):
                 return
             self.last_move = time.monotonic()
-            self.self_selected = False
+            self._restore_self_view("小地图移动指令已下达，立即返回自身视角")
 
     def _try_open_cards(self, screenshot: Image.Image, now: float) -> bool:
         """Optional card task after local combat, with a verified-open backoff."""
