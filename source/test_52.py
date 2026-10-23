@@ -101,17 +101,26 @@ class Combat52Tests(unittest.TestCase):
         engine._find_minimap_friendly_group = lambda _image: None
         self.assertFalse(engine._follow_friendly_group(Image.new("RGB", (1024, 768)), 107.0))
 
-    def test_contested_team_fight_is_confirmed_then_held(self):
+    def test_stable_team_fight_does_not_force_reentry(self):
         engine = self.make_engine()
         engine.last_group_follow = 100.0
         engine.last_group_point = [100, 650]
         engine._find_minimap_friendly_group = lambda _image: ([105, 654], 65, 24)
         moves = []
         engine._move_to_tactical_point = lambda point, label: moves.append((point, label)) or True
-        self.assertTrue(engine._follow_friendly_group(Image.new("RGB", (1024, 768)), 120.0))
-        self.assertTrue(engine._follow_friendly_group(Image.new("RGB", (1024, 768)), 120.6))
-        self.assertEqual(moves, [([105, 654], "团队目标（团战/推塔/BOSS）")])
-        self.assertGreater(engine.objective_hold_until, 120.6)
+        self.assertFalse(engine._follow_friendly_group(Image.new("RGB", (1024, 768)), 120.0))
+        self.assertEqual(moves, [])
+
+    def test_persisted_58_objective_flag_cannot_reenable_false_lock(self):
+        engine = self.make_engine()
+        engine.config["combat"]["objective_support_enabled"] = True
+        engine.last_group_follow = 100.0
+        engine.last_group_point = [100, 650]
+        engine._find_minimap_friendly_group = lambda _image: ([105, 654], 81, 46)
+        moves = []
+        engine._move_to_tactical_point = lambda point, label: moves.append((point, label)) or True
+        self.assertFalse(engine._follow_friendly_group(Image.new("RGB", (1024, 768)), 120.0))
+        self.assertEqual(moves, [])
 
     def test_bottom_edge_icons_are_not_objective_support(self):
         engine = self.make_engine()
