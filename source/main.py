@@ -4300,6 +4300,15 @@ class App:
     def load_config(self) -> dict[str, Any]:
         path = self.base / "config.json"
         try:
+            if not path.is_file():
+                defaults_path = self.base / "config.example.json"
+                if not defaults_path.is_file():
+                    raise FileNotFoundError(f"配置文件和默认配置均不存在：{path}")
+                # A freshly unpacked build (or the repository-side executable)
+                # may not have a personal config yet.  Seed it once from the
+                # shipped defaults instead of showing the same fatal dialog on
+                # every launch.
+                path.write_text(defaults_path.read_text(encoding="utf-8"), encoding="utf-8")
             with path.open("r", encoding="utf-8") as handle:
                 config = json.load(handle)
             defaults_path = self.base / "config.example.json"

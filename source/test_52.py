@@ -1,5 +1,6 @@
 import json
 import logging
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -40,6 +41,21 @@ class Combat52Tests(unittest.TestCase):
         engine._use_counted_inventory_items = lambda _image, limit=None: 0
         engine._retreat_to_team_or_home = lambda _image, _now, prefer_home=False: True
         return engine
+
+    def test_missing_personal_config_is_seeded_from_defaults(self):
+        with tempfile.TemporaryDirectory() as temp_dir:
+            base = Path(temp_dir)
+            defaults = {"window": {"title": "梦三国2"}, "timing": {"scan_interval": 0.5}}
+            (base / "config.example.json").write_text(
+                json.dumps(defaults, ensure_ascii=False), encoding="utf-8"
+            )
+            app = main.App.__new__(main.App)
+            app.base = base
+
+            self.assertEqual(app.load_config(), defaults)
+            self.assertEqual(
+                json.loads((base / "config.json").read_text(encoding="utf-8")), defaults
+            )
 
     def test_health_bar_ratio(self):
         engine = self.make_engine()
