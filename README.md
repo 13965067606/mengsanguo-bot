@@ -1,11 +1,19 @@
 # mengsanguo-bot
 梦三国2巅峰争霸脚本
 
-## 6.0 源码
+## 6.1 源码
 
 本软件永久免费，为爱发电，请勿用于商业用途。请设置游戏界面风格为经典画面。
 
-这是 6.0 版本源码，不含个人录像、操作采集、战绩、学习数据和运行日志。保留 4.9 的一键更新功能。
+这是 6.1 版本源码，不含个人录像、操作采集、战绩、学习数据和运行日志。保留 4.9 的一键更新功能。
+
+### 6.1 满血撤退修正
+
+- 汇总 6.0 的 8 局完整实测：平均战绩 1104，3 局达到 1500。
+- 移除与血量无关的“落单战术撤退”旧路径；只有低血且附近无队友时才允许撤退。
+- 跟团改路的最短间隔由 12 秒延长到 16 秒，减少低分局频繁改变目的地。
+
+详细数据见 [6.1 多局实测优化说明](6.1多局实测优化说明.md)。
 
 ### 6.0 团战目标纠偏
 
@@ -131,7 +139,7 @@ powershell -ExecutionPolicy Bypass -File source/build.ps1
 发布者每次修改 `source/main.py` 的 `APP_VERSION`，打包后执行：
 
 ```powershell
-python source/package_release.py --version 6.0 --output release-output
+python source/package_release.py --version 6.1 --output release-output
 ```
 
 在 GitHub 仓库 Releases 创建版本（例如标签 `v5.2`），上传生成的 `MengSanGuoBot-update.zip`、`MengSanGuoBot-5.2.zip` 和 `SHA256.txt`，填写说明并作为正式版本发布。后续版本使用相应版本号。请不要将 GitHub Token 写入软件。

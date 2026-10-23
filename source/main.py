@@ -32,7 +32,7 @@ import tkinter.font as tkfont
 from tkinter import messagebox, simpledialog, ttk
 
 
-APP_VERSION = "6.0"
+APP_VERSION = "6.1"
 APP_NAME = f"梦三国2巅峰争霸脚本 {APP_VERSION}"
 WM_HOTKEY = 0x0312
 HOTKEY_F8 = 1
@@ -3195,7 +3195,10 @@ class BotEngine:
         # support orders in 26 minutes. The 5.3 baseline performs better by
         # letting verified local combat, conservative group follow, teleport,
         # and flashing targets each keep their normal priority.
-        interval = max(12.0, float(self.config["timing"].get("team_follow_interval", 12.0)))
+        # Multi-match 6.0 data showed that low scoring games changed group
+        # destinations most often.  Let a verified support order settle before
+        # considering another map-wide redirect.
+        interval = max(16.0, float(self.config["timing"].get("team_follow_interval", 16.0)))
         hold = max(2.0, float(self.config["timing"].get("movement_settle", 5.0)))
         age = now - self.last_group_follow
         if self.last_group_follow > 0.0 and age < hold:
@@ -3605,10 +3608,9 @@ class BotEngine:
         if enemy is not None:
             self.last_combat_seen = now
             self.no_enemy_since = 0.0
-            isolated_max = max(0, int(self.config["combat"].get("isolated_friendly_max", 1)))
-            if self._should_retreat_isolated(now):
-                self._retreat_to_team_or_home(screenshot, now)
-                return
+            # Retreat is governed exclusively by the low-health path above.
+            # The old isolated-target branch could retreat at full health and
+            # directly contradicted "only retreat when low and alone".
             inventory_interval = float(self.config["timing"].get("inventory_item_interval", 8.0))
             if self.config["combat"].get("use_counted_inventory_items", True) and now - self.last_inventory_use >= inventory_interval:
                 self._use_counted_inventory_items(screenshot)
@@ -3643,9 +3645,6 @@ class BotEngine:
                     if refreshed_target is None:
                         self.log.debug("技能取消：敌方目标已消失，不点击旧位置")
                         break
-                    if self._should_retreat_isolated(time.monotonic()):
-                        self._retreat_to_team_or_home(fresh[1], time.monotonic())
-                        return
                     skill_target = refreshed_target
                 if self.window.key_tap(key):
                     time.sleep(float(self.config["timing"].get("key_gap", 0.12)))

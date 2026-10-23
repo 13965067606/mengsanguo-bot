@@ -99,6 +99,14 @@ class Combat52Tests(unittest.TestCase):
         self.assertFalse(engine._handle_low_health_retreat(low, 101.0, teammates_nearby=True))
         self.assertFalse(engine.retreat_latched)
 
+    def test_full_health_isolation_never_requests_tactical_retreat(self):
+        engine = self.make_engine()
+        engine.last_target_friendly_count = 0
+        engine.isolated_since = 90.0
+        engine.isolated_samples = 20
+        engine.config["combat"]["retreat_when_isolated"] = False
+        self.assertFalse(engine._should_retreat_isolated(100.0))
+
     def test_respawn_requires_three_healthy_samples(self):
         engine = self.make_engine()
         high = frame_with_health(0.80)
