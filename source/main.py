@@ -32,7 +32,7 @@ import tkinter.font as tkfont
 from tkinter import messagebox, simpledialog, ttk
 
 
-APP_VERSION = "5.9"
+APP_VERSION = "6.0"
 APP_NAME = f"梦三国2巅峰争霸脚本 {APP_VERSION}"
 WM_HOTKEY = 0x0312
 HOTKEY_F8 = 1
@@ -3093,9 +3093,16 @@ class BotEngine:
         yy, xx = np.indices(friendly_scores.shape)
         centers_x = xx + window_size // 2
         centers_y = yy + window_size // 2
-        # Both base corners contain permanent buildings/portraits. Team side
-        # changes between matches; neither corner is a reliable moving group.
-        home_mask = ((xx <= width * 0.32) & (yy+window_size >= height * 0.68)) | ((xx+window_size >= width * 0.68) & (yy <= height * 0.32))
+        # Recorded 5.9 matches proved that team/base orientation is not fixed:
+        # the player's fountain can also be in the bottom-right corner.  Every
+        # corner contains permanent coloured buildings/portraits, so none is a
+        # reliable moving group.  Keep the lanes and central objective area.
+        corner = min(0.40, max(0.24, float(self.config["combat"].get("team_group_corner_ratio", 0.34))))
+        left = xx <= width * corner
+        right = xx + window_size >= width * (1.0 - corner)
+        top = yy <= height * corner
+        bottom = yy + window_size >= height * (1.0 - corner)
+        home_mask = (left | right) & (top | bottom)
         valid &= ~home_mask
         if safe:
             # Retreat is not support: never select the hottest red/green fight
@@ -3104,8 +3111,14 @@ class BotEngine:
         if not np.any(valid):
             return None
         contested = valid & (enemy_scores >= 8)
-        if not safe and self.config["combat"].get("prefer_contested_friendly_group", True) and np.any(contested):
-            valid = contested
+        if not safe and self.config["combat"].get("prefer_contested_friendly_group", True):
+            if np.any(contested):
+                valid = contested
+            elif self.config["combat"].get("team_group_require_contested", True):
+                # A friendly-only cluster may be a fountain, shop, tower or an
+                # idle ally.  Following it produced long full-health returns to
+                # base in the first recorded 5.9 match.
+                return None
         score = np.minimum(friendly_scores, 80).astype(np.float32) + np.minimum(enemy_scores, 30) * 2.0
         score[~valid] = -1.0
         row, col = np.unravel_index(int(np.argmax(score)), score.shape)
@@ -3148,12 +3161,18 @@ class BotEngine:
         x, y, width, height = self.config["coordinates"]["minimap_region"]
         enemy, friendly = self._minimap_color_masks(screenshot)
         cw, ch = max(1, int(width*.30)), max(1, int(height*.30))
-        corners = [(slice(height-ch,height),slice(0,cw)),(slice(0,ch),slice(width-cw,width))]
-        greens = [int(friendly[region].sum()) for region in corners]
-        scores = [greens[i]-int(enemy[region].sum())*.5 for i,region in enumerate(corners)]
-        if max(greens) < 10 or abs(scores[0]-scores[1]) < 8:
+        corners = [
+            (slice(height-ch, height), slice(0, cw), [x+12, y+height-12]),
+            (slice(height-ch, height), slice(width-cw, width), [x+width-12, y+height-12]),
+            (slice(0, ch), slice(0, cw), [x+12, y+12]),
+            (slice(0, ch), slice(width-cw, width), [x+width-12, y+12]),
+        ]
+        greens = [int(friendly[rows, cols].sum()) for rows, cols, _point in corners]
+        scores = [greens[i]-int(enemy[rows, cols].sum())*.5 for i,(rows,cols,_point) in enumerate(corners)]
+        order = sorted(range(len(scores)), key=lambda index: scores[index], reverse=True)
+        if max(greens) < 10 or scores[order[0]] - scores[order[1]] < 8:
             return None
-        return [x+12,y+height-12] if scores[0]>scores[1] else [x+width-12,y+12]
+        return list(corners[order[0]][2])
 
     def _should_retreat_isolated(self, now: float) -> bool:
         limit = max(0, int(self.config["combat"].get("isolated_friendly_max", 1)))

@@ -148,6 +148,26 @@ class Combat52Tests(unittest.TestCase):
         self.assertTrue(engine._follow_friendly_group(Image.new("RGB", (1024, 768)), 120.0))
         self.assertNotIn("团队目标", moves[0][1])
 
+    def test_bottom_right_fountain_is_not_a_friendly_group(self):
+        engine = self.make_engine()
+        enemy = __import__("numpy").zeros((154, 158), dtype=bool)
+        friendly = enemy.copy()
+        friendly[118:142, 122:150] = True
+        enemy[122:137, 128:148] = True
+        engine._minimap_color_masks = lambda _image: (enemy, friendly)
+        self.assertIsNone(engine._find_minimap_friendly_group(Image.new("RGB", (1024, 768))))
+
+    def test_central_contested_group_remains_available(self):
+        engine = self.make_engine()
+        enemy = __import__("numpy").zeros((154, 158), dtype=bool)
+        friendly = enemy.copy()
+        friendly[68:76, 76:88] = True
+        enemy[72:80, 84:94] = True
+        engine._minimap_color_masks = lambda _image: (enemy, friendly)
+        group = engine._find_minimap_friendly_group(Image.new("RGB", (1024, 768)))
+        self.assertIsNotNone(group)
+        self.assertGreaterEqual(group[2], 8)
+
     def test_camera_map_move_immediately_restores_self_view(self):
         engine = self.make_engine()
         engine.config["combat"]["minimap_move_mode"] = "camera"

@@ -1,11 +1,19 @@
 # mengsanguo-bot
 梦三国2巅峰争霸脚本
 
-## 5.9 源码
+## 6.0 源码
 
 本软件永久免费，为爱发电，请勿用于商业用途。请设置游戏界面风格为经典画面。
 
-这是 5.9 版本源码，不含个人录像、操作采集、战绩、学习数据和运行日志。保留 4.9 的一键更新功能。
+这是 6.0 版本源码，不含个人录像、操作采集、战绩、学习数据和运行日志。保留 4.9 的一键更新功能。
+
+### 6.0 团战目标纠偏
+
+- 修正 5.9 首局录像暴露的阵营方向误判：四个基地角落均不再作为常规跟团目标。
+- 只有同时检测到敌我交战证据时才跟随友军，不再追逐泉水、固定建筑或无战斗队友。
+- 低血基地识别支持四角动态判断，不再假定己方只在左下或右上。
+
+详细数据见 [6.0 团战目标纠偏说明](6.0团战目标纠偏说明.md)。
 
 ### 5.9 高分基线回归
 
@@ -123,7 +131,7 @@ powershell -ExecutionPolicy Bypass -File source/build.ps1
 发布者每次修改 `source/main.py` 的 `APP_VERSION`，打包后执行：
 
 ```powershell
-python source/package_release.py --version 5.9 --output release-output
+python source/package_release.py --version 6.0 --output release-output
 ```
 
 在 GitHub 仓库 Releases 创建版本（例如标签 `v5.2`），上传生成的 `MengSanGuoBot-update.zip`、`MengSanGuoBot-5.2.zip` 和 `SHA256.txt`，填写说明并作为正式版本发布。后续版本使用相应版本号。请不要将 GitHub Token 写入软件。

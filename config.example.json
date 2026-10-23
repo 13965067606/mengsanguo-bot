@@ -451,6 +451,7 @@
     "respawn_health_samples": 3,
     "minimap_move_mode": "direct",
     "prefer_contested_friendly_group": true,
+    "team_group_require_contested": true,
     "experimental_support_enabled": false,
     "objective_support_enabled": false,
     "skill_keys": [
@@ -470,6 +471,7 @@
     "team_group_window": 21,
     "team_group_min_friendly_pixels": 10,
     "team_group_retarget_pixels": 18,
+    "team_group_corner_ratio": 0.34,
     "retreat_when_isolated": true,
     "isolated_friendly_max": 0,
     "boss_support_enabled": true,
